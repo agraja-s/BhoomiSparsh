@@ -17,8 +17,8 @@ export class AssessmentMockAdapter {
   ): Promise<AssessmentResponse> {
     await new Promise((resolve) => setTimeout(resolve, this.simulatedLatencyMs))
 
-    const crop = payload.cropType
-    const stage = payload.growthStage
+    const crop = payload.cropType || 'Tomato'
+    const stage = payload.growthStage || 'Vegetative'
     const lat = payload.latitude || 18.5204
     const lng = payload.longitude || 73.8567
 
@@ -82,8 +82,17 @@ export class AssessmentMockAdapter {
 
     const overallLevel = baseRisk >= 70 ? 'high' : baseRisk >= 40 ? 'moderate' : 'low'
 
+    const uuid =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0
+            const v = c === 'x' ? r : (r & 0x3) | 0x8
+            return v.toString(16)
+          })
+
     return {
-      assessmentId: `as-mock-${Date.now().toString(36).toUpperCase()}`,
+      assessmentId: uuid,
       generatedAt: nowIso,
       mode: 'mock',
       imageUrl: previewUrl,
@@ -171,6 +180,85 @@ export class AssessmentMockAdapter {
           'State Agricultural Extension Advisory (KVK Maharashtra)',
           'FAO Plant Protection Bulletin',
         ],
+      },
+      farmerReport: {
+        cropIdentified: {
+          en: crop,
+          hi: crop === 'Potato' ? 'आलू' : crop === 'Tomato' ? 'टमाटर' : crop === 'Rice' ? 'चावल' : 'कपास',
+          mr: crop === 'Potato' ? 'बटाटा' : crop === 'Tomato' ? 'टोमॅटो' : crop === 'Rice' ? 'भात' : 'कापूस',
+        },
+        growthStage: {
+          en: stage,
+          hi: 'वानस्पतिक अवस्था',
+          mr: 'शाकीय वाढीची अवस्था',
+        },
+        imageQuality: {
+          clarity: 'good',
+          warningEn: null,
+          warningHi: null,
+          warningMr: null,
+        },
+        status: status,
+        diagnosis: {
+          diseaseName: {
+            en: primaryDisease,
+            hi: 'पछेती झुलसा रोग (लेट ब्लाइट)',
+            mr: 'उशिरा करपा रोग (लेट ब्लाइट)',
+          },
+          scientificName,
+          confidence: baseRisk >= 70 ? 0.86 : 0.62,
+          severity,
+          whatFarmerSees: {
+            en: 'Dark water-soaked spots on leaves with pale borders, visible leaf wilt',
+            hi: 'पत्तियों पर गहरे पानीदार धब्बे और हल्की पीली किनारी, पत्तियां मुरझा रही हैं',
+            mr: 'पानांवर गडद पाण्याचे डाग आणि फिकट पिवळी कडा, पाने सुकताना दिसत आहेत',
+          },
+          isItSerious: {
+            en: 'Yes — high humidity accelerates spore spread across the field within 24-48 hours',
+            hi: 'हाँ — उच्च आर्द्रता 24-48 घंटों के भीतर पूरे खेत में बीजाणुओं को फैला सकती है',
+            mr: 'होय — जास्त आर्द्रतेमुळे २४ ते ४८ तासांत संपूर्ण शेतात रोगाचा प्रादुर्भाव वाढू शकतो',
+          },
+        },
+        immediateActions: [
+          {
+            step: 1,
+            en: 'Remove and bag discolored leaves immediately — do not leave in field',
+            hi: 'रोगग्रस्त पत्तियों को तुरंत तोड़कर खेत से बाहर नष्ट करें',
+            mr: 'बाधित पाने लगेच तोडून शेताबाहेर नष्ट करा',
+          },
+          {
+            step: 2,
+            en: 'Cease overhead sprinkler watering; supply water directly to root base via drip',
+            hi: 'ऊपर से छिड़काव बंद करें, केवल ड्रिप या जड़ों में पानी दें',
+            mr: 'वरून पाणी देणे बंद करा; फक्त ठिबक किंवा मुळाशी पाणी द्या',
+          },
+          {
+            step: 3,
+            en: 'Inspect nearby plants within a 5-meter radius for early speckling',
+            hi: '5 मीटर के दायरे में अन्य पौधों की भी बारीकी से जांच करें',
+            mr: '५ मीटरच्या परिघात इतर झाडांचीही बारकाईने तपासणी करा',
+          },
+        ],
+        urgency: {
+          level: severity === 'high' ? 'high' : 'medium',
+          actByEn: 'Act within 24 hours before evening dew',
+          actByHi: 'शाम की ओस से पहले 24 घंटे के भीतर कार्रवाई करें',
+          actByMr: 'संध्याकाळच्या दव पडण्यापूर्वी २४ तासांत उपाय करा',
+        },
+        recheckIn: {
+          en: 'Inspect again tomorrow morning before 9:00 AM',
+          hi: 'कल सुबह 9:00 बजे से पहले दोबारा निरीक्षण करें',
+          mr: 'उद्या सकाळी ९:०० वाजेपूर्वी पुन्हा तपासणी करा',
+        },
+        callExpert: severity === 'high',
+        expertReasonEn: 'High humidity combined with optimal temperature accelerates lesion expansion',
+        expertReasonHi: 'अनुकूल तापमान और नमी से बीमारी तेजी से बढ़ सकती है',
+        expertReasonMr: 'अनुकूल तापमान व आर्द्रतेमुळे रोगाचा प्रादुर्भाव वेगाने वाढू शकतो',
+        uncertaintyNote: {
+          en: 'AI assessment based on visual indicators. Always verify with physical ground inspection.',
+          hi: 'यह दृश्य संकेतों पर आधारित AI मूल्यांकन है। खेत में प्रत्यक्ष जांच अवश्य करें।',
+          mr: 'हे दृश्य लक्षणांवर आधारित AI विश्लेषण आहे. प्रत्यक्ष शेतात जाऊन खात्री करा.',
+        },
       },
     }
   }

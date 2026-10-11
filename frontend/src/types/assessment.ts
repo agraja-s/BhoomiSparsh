@@ -102,6 +102,54 @@ export interface AdvisoryInfo {
   verifiedSources?: string[]
 }
 
+export interface MultilingualText {
+  en: string
+  hi: string
+  mr: string
+}
+
+export interface ImmediateActionStep {
+  step: number
+  en: string
+  hi: string
+  mr: string
+}
+
+export interface UrgencyInfo {
+  level: 'low' | 'medium' | 'high' | 'critical'
+  actByEn: string
+  actByHi: string
+  actByMr: string
+}
+
+export interface FarmerFriendlyDiagnosis {
+  cropIdentified?: MultilingualText | string
+  growthStage?: MultilingualText | string
+  imageQuality?: {
+    clarity: 'good' | 'fair' | 'poor'
+    warningEn?: string | null
+    warningHi?: string | null
+    warningMr?: string | null
+  }
+  status: 'candidate_detected' | 'healthy' | 'inconclusive'
+  diagnosis?: {
+    diseaseName?: MultilingualText | string
+    scientificName?: string
+    confidence?: number
+    severity?: 'low' | 'moderate' | 'high' | 'critical'
+    whatFarmerSees?: MultilingualText | string
+    isItSerious?: MultilingualText | string
+  }
+  immediateActions?: ImmediateActionStep[]
+  urgency?: UrgencyInfo
+  recheckIn?: MultilingualText | string
+  callExpert?: boolean
+  expertReasonEn?: string
+  expertReasonHi?: string
+  expertReasonMr?: string
+  uncertaintyNote?: MultilingualText | string
+}
+
 export interface AssessmentResponse {
   assessmentId: string
   generatedAt: string
@@ -112,13 +160,63 @@ export interface AssessmentResponse {
   riskAssessment: RiskAssessmentInfo
   advisory: AdvisoryInfo
   imageUrl?: string // local object URL or returned CDN URL for preview
+  farmerReport?: FarmerFriendlyDiagnosis
 }
 
 export interface AssessmentSubmissionPayload {
   image: File
-  cropType: CropType
-  growthStage: GrowthStage
+  cropType?: CropType
+  growthStage?: GrowthStage
   latitude: number
   longitude: number
   farmerNotes?: string
 }
+
+export type FeedbackLabelSource = 'farmer_report' | 'expert_verified' | 'field_observed'
+
+export type FeedbackOutcomeStatus =
+  | 'recovered'
+  | 'improving'
+  | 'no_change'
+  | 'worsening'
+  | 'spread_to_other_plants'
+  | 'crop_loss'
+  | 'unknown'
+
+export interface AssessmentFeedbackSubmission {
+  assessmentId: string
+  labelSource: FeedbackLabelSource
+  diseaseObserved: boolean | 'unknown'
+  outcomeStatus: FeedbackOutcomeStatus
+  daysAfterAssessment?: number
+  farmerFoundAdvisoryHelpful?: boolean
+  observedCropType?: string
+  confirmedDisease?: string
+  notes?: string
+}
+
+export interface AssessmentFeedbackResponse {
+  feedbackId: string
+  assessmentId: string
+  status: 'saved' | 'duplicate'
+  labelSource?: string
+  verificationStatus?: string
+  evaluationEligible?: boolean
+  evaluationBlockers?: string[]
+  message?: string
+}
+
+export interface EvaluationRunSummary {
+  runKey: string
+  evaluatedAt: string
+  datasetSize: number
+  expertVerifiedSize: number
+  evaluationStatus: 'completed' | 'inconclusive' | 'insufficient_data'
+  diagnosticAccuracy?: number | null
+  alertPrecision?: number | null
+  alertRecall?: number | null
+  qualityCheckPassRate?: number | null
+  topWeaknesses?: Array<{ subject: string; note: string; count: number }>
+  proposedRulesCount?: number
+}
+

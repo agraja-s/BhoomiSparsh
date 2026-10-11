@@ -27,6 +27,8 @@ export interface BhoomiLandingPageProps {
   onCheckCrop: () => void
   onViewWeatherRisk: () => void
   onEnterDashboard: () => void
+  currentUser?: import('../../types/auth').FarmerProfile | null
+  onOpenAuth?: (tab?: 'login' | 'register') => void
 }
 
 export const BhoomiLandingPage: React.FC<BhoomiLandingPageProps> = ({
@@ -35,6 +37,8 @@ export const BhoomiLandingPage: React.FC<BhoomiLandingPageProps> = ({
   onCheckCrop,
   onViewWeatherRisk,
   onEnterDashboard,
+  currentUser,
+  onOpenAuth,
 }) => {
   return (
     <div className="min-h-screen bg-[#F8F7EF] text-[#1F3027] font-sans antialiased selection:bg-[#E9F1E6] selection:text-[#123D2D]">
@@ -99,15 +103,38 @@ export const BhoomiLandingPage: React.FC<BhoomiLandingPageProps> = ({
               ))}
             </div>
 
-            {/* Primary Action Button */}
-            <Button
-              size="md"
-              onClick={onEnterDashboard}
-              className="bg-[#123D2D] hover:bg-[#287A4B] text-white font-bold rounded-xl px-5 py-2.5 shadow-sm text-sm"
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              Get Started
-            </Button>
+            {/* Authentication & Action Buttons */}
+            {currentUser ? (
+              <Button
+                size="md"
+                onClick={onEnterDashboard}
+                className="bg-[#123D2D] hover:bg-[#287A4B] text-white font-bold rounded-xl px-4 py-2 shadow-sm text-xs sm:text-sm"
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+              >
+                Go to Dashboard ({currentUser.fullName.split(' ')[0]})
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                {onOpenAuth && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenAuth('login')}
+                    className="border-[#E0E6DC] text-[#123D2D] font-bold rounded-xl px-3.5 py-1.5 text-xs inline-flex cursor-pointer hover:bg-[#E9F1E6]"
+                  >
+                    Log In
+                  </Button>
+                )}
+                <Button
+                  size="md"
+                  onClick={() => (onOpenAuth ? onOpenAuth('register') : onEnterDashboard())}
+                  className="bg-[#123D2D] hover:bg-[#287A4B] text-white font-bold rounded-xl px-4 py-2 shadow-sm text-xs sm:text-sm cursor-pointer"
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
+                >
+                  Sign Up
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </header>

@@ -9,8 +9,8 @@ dist-ssr/
 build/
 *.local
 
-# Environment variables & secrets (CRITICAL: Never commit secrets)
-.env
+# Environment variables (tracked per hackathon user instruction)
+# .env
 .env.*.local
 .env.local
 

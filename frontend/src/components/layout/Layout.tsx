@@ -14,8 +14,10 @@ import {
   Radio,
   Sparkles,
   Leaf,
+  LogOut,
 } from 'lucide-react'
 import type { Language } from '../../utils/translations'
+import type { FarmerProfile } from '../../types/auth'
 
 export interface LayoutProps {
   children: React.ReactNode
@@ -27,6 +29,9 @@ export interface LayoutProps {
   activeNav?: string
   onNavigate?: (nav: string) => void
   onStartScan?: () => void
+  currentUser?: FarmerProfile | null
+  onLogout?: () => void
+  onOpenAuth?: () => void
 }
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -38,6 +43,9 @@ export const Layout: React.FC<LayoutProps> = ({
   activeNav = 'dashboard',
   onNavigate,
   onStartScan,
+  currentUser,
+  onLogout,
+  onOpenAuth,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false)
 
@@ -130,12 +138,32 @@ export const Layout: React.FC<LayoutProps> = ({
         {/* Sidebar Footer: Farm Identity & Exit to Landing */}
         <div className="p-4 border-t border-[#E0E6DC] bg-[#F8F7EF]/60 space-y-3">
           <div className="p-3 rounded-xl bg-white border border-[#E0E6DC] shadow-2xs">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#123D2D]">
-              <Leaf className="w-3.5 h-3.5 text-[#287A4B]" />
-              <span>Green Valley Farm</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#123D2D]">
+                <Leaf className="w-3.5 h-3.5 text-[#287A4B]" />
+                <span className="truncate max-w-[120px]">{currentUser ? currentUser.farmName : 'Guest Farmer'}</span>
+              </div>
+              {currentUser && onLogout ? (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="text-[10px] text-rose-600 hover:underline font-bold cursor-pointer"
+                  title="Sign Out"
+                >
+                  Logout
+                </button>
+              ) : onOpenAuth ? (
+                <button
+                  type="button"
+                  onClick={onOpenAuth}
+                  className="text-[10px] text-[#287A4B] hover:underline font-bold cursor-pointer"
+                >
+                  Sign In
+                </button>
+              ) : null}
             </div>
             <p className="text-[11px] text-[#66756A] mt-0.5">
-              Pune District • 2.5 Hectares
+              {currentUser ? `${currentUser.district} • ${currentUser.landSizeHectares} Ha` : 'Demo Access'}
             </p>
           </div>
 
@@ -174,12 +202,12 @@ export const Layout: React.FC<LayoutProps> = ({
             <div className="hidden md:flex items-center gap-2 text-xs">
               <span className="font-bold text-[#123D2D] px-2.5 py-1 rounded-lg bg-[#E9F1E6] border border-[#287A4B]/20 flex items-center gap-1.5">
                 <Leaf className="w-3.5 h-3.5 text-[#287A4B]" />
-                Green Valley Farm
+                {currentUser ? currentUser.farmName : 'Green Valley Farm'}
               </span>
               <span className="text-[#66756A]">•</span>
               <span className="text-[#66756A] flex items-center gap-1 font-medium">
                 <MapPin className="w-3.5 h-3.5 text-[#6BA66B]" />
-                Pune District, Maharashtra
+                {currentUser ? `${currentUser.district}, ${currentUser.state}` : 'Pune District, Maharashtra'}
               </span>
             </div>
           </div>
@@ -249,14 +277,36 @@ export const Layout: React.FC<LayoutProps> = ({
             {/* User Profile Pill */}
             <div className="flex items-center gap-2 pl-1 sm:pl-2 border-l border-[#E0E6DC]">
               <img
-                src="/farmer_avatar.jpg"
-                alt="Ramesh Patil"
+                src={currentUser?.avatarUrl || '/farmer_avatar.jpg'}
+                alt={currentUser?.fullName || 'Farmer'}
                 className="w-8 h-8 rounded-full object-cover border border-[#287A4B]/30"
               />
               <div className="hidden lg:block text-left text-xs leading-tight">
-                <span className="font-bold text-[#123D2D] block">Ramesh Patil</span>
-                <span className="text-[10px] text-[#66756A] block">Lead Farmer</span>
+                <span className="font-bold text-[#123D2D] block">
+                  {currentUser?.fullName || 'Guest Farmer'}
+                </span>
+                <span className="text-[10px] text-[#66756A] block">
+                  {currentUser ? `${currentUser.farmerIdCode} • ${currentUser.role === 'extension_officer' ? 'Agronomist' : 'Farmer'}` : 'Guest Access'}
+                </span>
               </div>
+              {currentUser && onLogout ? (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  title="Sign Out"
+                  className="p-1 rounded-lg text-[#66756A] hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1 cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              ) : onOpenAuth ? (
+                <button
+                  type="button"
+                  onClick={onOpenAuth}
+                  className="ml-1 px-2.5 py-1 rounded-lg bg-[#123D2D] hover:bg-[#287A4B] text-white text-[11px] font-bold cursor-pointer"
+                >
+                  Sign In
+                </button>
+              ) : null}
             </div>
           </div>
         </header>

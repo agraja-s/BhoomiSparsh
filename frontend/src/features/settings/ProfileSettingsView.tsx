@@ -15,17 +15,25 @@ export interface ProfileSettingsViewProps {
   language: Language
   onLanguageChange: (lang: Language) => void
   onBackToDashboard: () => void
+  currentUser?: import('../../types/auth').FarmerProfile | null
+  onOpenAuth?: () => void
 }
 
 export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
   language,
   onLanguageChange,
   onBackToDashboard: _onBackToDashboard,
+  currentUser,
+  onOpenAuth,
 }) => {
-  const [fullName, setFullName] = useState('Ramesh Patil')
-  const [phone, setPhone] = useState('+91 98220 41209')
-  const [district, setDistrict] = useState('Pune District, Maharashtra')
-  const [_preferredCrops, _setPreferredCrops] = useState<string[]>(['Potato', 'Tomato', 'Cotton'])
+  const [fullName, setFullName] = useState(currentUser?.fullName || 'Ramesh Patil')
+  const [phone, setPhone] = useState(currentUser?.phone || '+91 98220 41209')
+  const [district, setDistrict] = useState(
+    currentUser ? `${currentUser.district}, ${currentUser.state}` : 'Pune District, Maharashtra'
+  )
+  const [_preferredCrops, _setPreferredCrops] = useState<string[]>(
+    currentUser?.primaryCrops || ['Potato', 'Tomato', 'Cotton']
+  )
   const [smsAlerts, setSmsAlerts] = useState(true)
   const [whatsappAlerts, setWhatsappAlerts] = useState(true)
   const [largeText, setLargeText] = useState(false)
@@ -63,21 +71,37 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
 
       {/* Profile Overview Card */}
       <div className="p-6 rounded-3xl bg-white border border-[#E0E6DC] shadow-2xs space-y-4">
-        <div className="flex items-center gap-4">
-          <img
-            src="/farmer_avatar.jpg"
-            alt="Ramesh Patil"
-            className="w-16 h-16 rounded-full object-cover border-2 border-[#287A4B]"
-          />
-          <div>
-            <h2 className="text-lg font-extrabold text-[#123D2D]">{fullName}</h2>
-            <p className="text-xs text-[#66756A]">
-              Farmer ID: <strong>#MH-PUN-8419</strong> • Green Valley Farm (2.5 Hectares)
-            </p>
-            <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-[#E9F1E6] text-[#123D2D] text-[11px] font-bold">
-              Verified Farmer Member
-            </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <img
+              src={currentUser?.avatarUrl || '/farmer_avatar.jpg'}
+              alt={fullName}
+              className="w-16 h-16 rounded-full object-cover border-2 border-[#287A4B]"
+            />
+            <div>
+              <h2 className="text-lg font-extrabold text-[#123D2D]">{fullName}</h2>
+              <p className="text-xs text-[#66756A]">
+                Farmer ID: <strong>{currentUser?.farmerIdCode || '#MH-PUN-8419'}</strong> •{' '}
+                {currentUser?.farmName || 'Green Valley Farm'} ({currentUser?.landSizeHectares || 2.5} Ha)
+              </p>
+              <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-[#E9F1E6] text-[#123D2D] text-[11px] font-bold">
+                {currentUser?.role === 'extension_officer'
+                  ? 'Agricultural Extension Officer'
+                  : 'Verified Farmer Member'}
+              </span>
+            </div>
           </div>
+
+          {onOpenAuth && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenAuth}
+              className="rounded-xl text-xs font-bold border-[#E0E6DC] text-[#123D2D] self-start sm:self-auto cursor-pointer"
+            >
+              Switch Farmer Account
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-[#E0E6DC] text-xs">

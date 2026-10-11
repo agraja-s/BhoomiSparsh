@@ -8,16 +8,19 @@ import { AdvisoryCenterView } from '../features/advisories/AdvisoryCenterView'
 import { MyFieldsView } from '../features/fields/MyFieldsView'
 import { HistoryReportsView } from '../features/history/HistoryReportsView'
 import { ProfileSettingsView } from '../features/settings/ProfileSettingsView'
+import { FarmerAuthModal } from '../features/auth/FarmerAuthModal'
 import { assessmentService } from '../services/assessmentService'
+import { authService } from '../services/authService'
 import { apiClient } from '../lib/api/client'
 import type { Language } from '../utils/translations'
 import type { AssessmentResponse } from '../types/assessment'
+import type { FarmerProfile } from '../types/auth'
 import { Alert } from '../components/ui/Alert'
 
 // Initial seeded demo assessments for Dashboard
 const SEEDED_RECENT_ASSESSMENTS: AssessmentResponse[] = [
   {
-    assessmentId: 'as-demo-potato-01',
+    assessmentId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     generatedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
     mode: 'mock',
     location: {
@@ -159,6 +162,11 @@ export type AppView =
 export const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en')
   const [currentView, setCurrentView] = useState<AppView>('landing')
+  const [currentUser, setCurrentUser] = useState<FarmerProfile | null>(() => authService.getCurrentUser())
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login')
+  const [pendingDestination, setPendingDestination] = useState<AppView | null>(null)
+
   const [recentAssessments] = useState<AssessmentResponse[]>(
     SEEDED_RECENT_ASSESSMENTS
   )
@@ -170,8 +178,18 @@ export const App: React.FC = () => {
   const isMockMode = assessmentService.isMockMode()
   const apiBaseUrl = apiClient.getBaseUrl()
 
+  const handleServiceAccess = (targetView: AppView) => {
+    if (currentUser) {
+      setCurrentView(targetView)
+    } else {
+      setPendingDestination(targetView)
+      setAuthModalTab('login')
+      setIsAuthModalOpen(true)
+    }
+  }
+
   const handleStartNewAssessment = () => {
-    setCurrentView('scan')
+    handleServiceAccess('scan')
   }
 
   const handleSelectRecentAssessment = (assessment: AssessmentResponse) => {
@@ -179,50 +197,87 @@ export const App: React.FC = () => {
     setCurrentView('weather-risk')
   }
 
-  // 1. PUBLIC LANDING PAGE (Screen 1)
-  if (currentView === 'landing') {
+  const handleAuthSuccess = (user: FarmerProfile) => {
+    setCurrentUser(user)
+    setIsAuthModalOpen(false)
+    if (pendingDestination) {
+      setCurrentView(pendingDestination)
+      setPendingDestination(null)
+    } else {
+      setCurrentView('dashboard')
+    }
+  }
+
+  const handleLogout = async () => {
+    await authService.logout()
+    setCurrentUser(null)
+    setCurrentView('landing')
+  }
+
+  const handleOpenAuth = (tab: 'login' | 'register' = 'login') => {
+    setAuthModalTab(tab)
+    setIsAuthModalOpen(true)
+  }
+
+  // 1. PUBLIC LANDING PAGE (Screen 1) or Unauthenticated Protection
+  if (currentView === 'landing' || !currentUser) {
     return (
-      <BhoomiLandingPage
-        language={language}
-        onLanguageChange={setLanguage}
-        onCheckCrop={handleStartNewAssessment}
-        onViewWeatherRisk={() => setCurrentView('weather-risk')}
-        onEnterDashboard={() => setCurrentView('dashboard')}
-      />
+      <>
+        <BhoomiLandingPage
+          language={language}
+          onLanguageChange={setLanguage}
+          onCheckCrop={() => handleServiceAccess('scan')}
+          onViewWeatherRisk={() => handleServiceAccess('weather-risk')}
+          onEnterDashboard={() => handleServiceAccess('dashboard')}
+          currentUser={currentUser}
+          onOpenAuth={handleOpenAuth}
+        />
+        <FarmerAuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccess={handleAuthSuccess}
+          language={language}
+          initialTab={authModalTab}
+        />
+      </>
     )
   }
 
   // 2. AUTHENTICATED APPLICATION SHELL WITH SIDEBAR & BOTTOM NAV
   return (
-    <Layout
-      isMockMode={isMockMode}
-      apiBaseUrl={apiBaseUrl}
-      language={language}
-      onLanguageChange={setLanguage}
-      onNavigateHome={() => setCurrentView('landing')}
-      activeNav={currentView}
-      onNavigate={(nav) => {
-        if (
-          nav === 'dashboard' ||
-          nav === 'scan' ||
-          nav === 'weather-risk' ||
-          nav === 'advisories' ||
-          nav === 'my-fields' ||
-          nav === 'history' ||
-          nav === 'settings'
-        ) {
-          setCurrentView(nav as AppView)
-        }
-      }}
-      onStartScan={handleStartNewAssessment}
-    >
-      {submissionError && (
-        <div className="mb-6 max-w-3xl mx-auto">
-          <Alert variant="destructive" title="Assessment Failed">
-            {submissionError}
-          </Alert>
-        </div>
-      )}
+    <>
+      <Layout
+        isMockMode={isMockMode}
+        apiBaseUrl={apiBaseUrl}
+        language={language}
+        onLanguageChange={setLanguage}
+        onNavigateHome={() => setCurrentView('landing')}
+        activeNav={currentView}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onOpenAuth={handleOpenAuth}
+        onNavigate={(nav) => {
+          if (
+            nav === 'dashboard' ||
+            nav === 'scan' ||
+            nav === 'weather-risk' ||
+            nav === 'advisories' ||
+            nav === 'my-fields' ||
+            nav === 'history' ||
+            nav === 'settings'
+          ) {
+            setCurrentView(nav as AppView)
+          }
+        }}
+        onStartScan={handleStartNewAssessment}
+      >
+        {submissionError && (
+          <div className="mb-6 max-w-3xl mx-auto">
+            <Alert variant="destructive" title="Assessment Failed">
+              {submissionError}
+            </Alert>
+          </div>
+        )}
 
       {/* Screen 2: Farmer Dashboard */}
       {currentView === 'dashboard' && (
@@ -288,10 +343,19 @@ export const App: React.FC = () => {
           language={language}
           onLanguageChange={setLanguage}
           onBackToDashboard={() => setCurrentView('dashboard')}
+          currentUser={currentUser}
+          onOpenAuth={handleOpenAuth}
         />
       )}
     </Layout>
-  )
+    <FarmerAuthModal
+      isOpen={isAuthModalOpen}
+      onClose={() => setIsAuthModalOpen(false)}
+      onSuccess={handleAuthSuccess}
+      language={language}
+    />
+  </>
+)
 }
 
 export default App
