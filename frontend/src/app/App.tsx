@@ -1,16 +1,17 @@
 import React, { useState } from 'react'
 import { Layout } from '../components/layout/Layout'
-import { FarmerDashboard } from '../features/dashboard/FarmerDashboard'
-import { NewAssessmentForm } from '../features/assessment/NewAssessmentForm'
-import { AssessmentResults } from '../features/assessment/AssessmentResults'
 import { BhoomiLandingPage } from '../features/landing/BhoomiLandingPage'
+import { FarmerDashboard } from '../features/dashboard/FarmerDashboard'
+import { CheckMyCropView } from '../features/diagnosis/CheckMyCropView'
+import { WeatherRiskView } from '../features/weather/WeatherRiskView'
+import { AdvisoryCenterView } from '../features/advisories/AdvisoryCenterView'
+import { MyFieldsView } from '../features/fields/MyFieldsView'
+import { HistoryReportsView } from '../features/history/HistoryReportsView'
+import { ProfileSettingsView } from '../features/settings/ProfileSettingsView'
 import { assessmentService } from '../services/assessmentService'
 import { apiClient } from '../lib/api/client'
 import type { Language } from '../utils/translations'
-import type {
-  AssessmentResponse,
-  AssessmentSubmissionPayload,
-} from '../types/assessment'
+import type { AssessmentResponse } from '../types/assessment'
 import { Alert } from '../components/ui/Alert'
 
 // Initial seeded demo assessments for Dashboard
@@ -145,67 +146,53 @@ const SEEDED_RECENT_ASSESSMENTS: AssessmentResponse[] = [
   },
 ]
 
+export type AppView =
+  | 'landing'
+  | 'dashboard'
+  | 'scan'
+  | 'weather-risk'
+  | 'advisories'
+  | 'my-fields'
+  | 'history'
+  | 'settings'
+
 export const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en')
-  const [currentView, setCurrentView] = useState<
-    'landing' | 'dashboard' | 'new-assessment' | 'results'
-  >('landing')
-  const [recentAssessments, setRecentAssessments] = useState<AssessmentResponse[]>(
+  const [currentView, setCurrentView] = useState<AppView>('landing')
+  const [recentAssessments] = useState<AssessmentResponse[]>(
     SEEDED_RECENT_ASSESSMENTS
   )
-  const [selectedAssessment, setSelectedAssessment] = useState<AssessmentResponse | null>(
+  const [_selectedAssessment, setSelectedAssessment] = useState<AssessmentResponse | null>(
     SEEDED_RECENT_ASSESSMENTS[0]
   )
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submissionError, setSubmissionError] = useState<string | null>(null)
+  const [submissionError] = useState<string | null>(null)
 
   const isMockMode = assessmentService.isMockMode()
   const apiBaseUrl = apiClient.getBaseUrl()
 
   const handleStartNewAssessment = () => {
-    setSubmissionError(null)
-    setCurrentView('new-assessment')
+    setCurrentView('scan')
   }
 
   const handleSelectRecentAssessment = (assessment: AssessmentResponse) => {
     setSelectedAssessment(assessment)
-    setCurrentView('results')
+    setCurrentView('weather-risk')
   }
 
-  const handleSubmitAssessment = async (
-    payload: AssessmentSubmissionPayload,
-    previewUrl?: string
-  ) => {
-    setIsSubmitting(true)
-    setSubmissionError(null)
-
-    try {
-      const result = await assessmentService.submitAssessment(payload, previewUrl)
-      setSelectedAssessment(result)
-      setRecentAssessments((prev) => [result, ...prev.filter((a) => a.assessmentId !== result.assessmentId)])
-      setCurrentView('results')
-    } catch (err: unknown) {
-      setSubmissionError((err as Error)?.message || 'Failed to analyze crop assessment.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
+  // 1. PUBLIC LANDING PAGE (Screen 1)
   if (currentView === 'landing') {
     return (
       <BhoomiLandingPage
         language={language}
         onLanguageChange={setLanguage}
         onCheckCrop={handleStartNewAssessment}
-        onViewWeatherRisk={() => {
-          setSelectedAssessment(recentAssessments[0])
-          setCurrentView('results')
-        }}
+        onViewWeatherRisk={() => setCurrentView('weather-risk')}
         onEnterDashboard={() => setCurrentView('dashboard')}
       />
     )
   }
 
+  // 2. AUTHENTICATED APPLICATION SHELL WITH SIDEBAR & BOTTOM NAV
   return (
     <Layout
       isMockMode={isMockMode}
@@ -213,6 +200,21 @@ export const App: React.FC = () => {
       language={language}
       onLanguageChange={setLanguage}
       onNavigateHome={() => setCurrentView('landing')}
+      activeNav={currentView}
+      onNavigate={(nav) => {
+        if (
+          nav === 'dashboard' ||
+          nav === 'scan' ||
+          nav === 'weather-risk' ||
+          nav === 'advisories' ||
+          nav === 'my-fields' ||
+          nav === 'history' ||
+          nav === 'settings'
+        ) {
+          setCurrentView(nav as AppView)
+        }
+      }}
+      onStartScan={handleStartNewAssessment}
     >
       {submissionError && (
         <div className="mb-6 max-w-3xl mx-auto">
@@ -222,6 +224,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {/* Screen 2: Farmer Dashboard */}
       {currentView === 'dashboard' && (
         <FarmerDashboard
           language={language}
@@ -229,24 +232,62 @@ export const App: React.FC = () => {
           onSelectAssessment={handleSelectRecentAssessment}
           recentAssessments={recentAssessments}
           isMockMode={isMockMode}
+          onNavigateWeatherRisk={() => setCurrentView('weather-risk')}
+          onNavigateAdvisories={() => setCurrentView('advisories')}
         />
       )}
 
-      {currentView === 'new-assessment' && (
-        <NewAssessmentForm
+      {/* Screen 3: Check My Crop */}
+      {currentView === 'scan' && (
+        <CheckMyCropView
           language={language}
-          onSubmit={handleSubmitAssessment}
-          isLoading={isSubmitting}
-          onCancel={() => setCurrentView('dashboard')}
+          onCheckWeatherRisk={() => setCurrentView('weather-risk')}
+          onBackToDashboard={() => setCurrentView('dashboard')}
         />
       )}
 
-      {currentView === 'results' && selectedAssessment && (
-        <AssessmentResults
-          assessment={selectedAssessment}
+      {/* Screen 4: Weather & Disease Risk */}
+      {currentView === 'weather-risk' && (
+        <WeatherRiskView
           language={language}
-          onBack={() => setCurrentView('dashboard')}
-          onNewAssessment={handleStartNewAssessment}
+          onBackToDashboard={() => setCurrentView('dashboard')}
+          onViewAdvisories={() => setCurrentView('advisories')}
+        />
+      )}
+
+      {/* Screen 5: Farmer Advisory Center */}
+      {currentView === 'advisories' && (
+        <AdvisoryCenterView
+          language={language}
+          onBackToDashboard={() => setCurrentView('dashboard')}
+          onCheckCrop={handleStartNewAssessment}
+        />
+      )}
+
+      {/* Screen 6: My Fields */}
+      {currentView === 'my-fields' && (
+        <MyFieldsView
+          language={language}
+          onStartCropCheck={handleStartNewAssessment}
+          onViewWeatherRisk={() => setCurrentView('weather-risk')}
+        />
+      )}
+
+      {/* Screen 7: History & Reports */}
+      {currentView === 'history' && (
+        <HistoryReportsView
+          language={language}
+          onBackToDashboard={() => setCurrentView('dashboard')}
+          onCheckCrop={handleStartNewAssessment}
+        />
+      )}
+
+      {/* Screen 8: Profile & Settings */}
+      {currentView === 'settings' && (
+        <ProfileSettingsView
+          language={language}
+          onLanguageChange={setLanguage}
+          onBackToDashboard={() => setCurrentView('dashboard')}
         />
       )}
     </Layout>
