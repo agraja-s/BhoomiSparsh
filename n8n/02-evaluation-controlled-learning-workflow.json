@@ -1,0 +1,674 @@
+﻿{
+    "name":  "AgriSentry â€” Evaluation and Controlled Learning Loop",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "rule":  {
+                                                      "interval":  [
+                                                                       {
+                                                                           "field":  "weeks",
+                                                                           "triggerAtDay":  [
+                                                                                                1
+                                                                                            ],
+                                                                           "triggerAtHour":  6
+                                                                       }
+                                                                   ]
+                                                  }
+                                     },
+                      "id":  "a5c5bb73-a67e-4b18-abdf-495ccb886efd",
+                      "name":  "Weekly Evaluation Schedule",
+                      "type":  "n8n-nodes-base.scheduleTrigger",
+                      "typeVersion":  1.4,
+                      "position":  [
+                                       0,
+                                       0
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "a1",
+                                                                                     "name":  "windowDays",
+                                                                                     "value":  90,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a2",
+                                                                                     "name":  "assessmentLookbackDays",
+                                                                                     "value":  60,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a3",
+                                                                                     "name":  "maxRows",
+                                                                                     "value":  1000,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a4",
+                                                                                     "name":  "eventWindowDays",
+                                                                                     "value":  14,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a5",
+                                                                                     "name":  "minVerifiedForConclusive",
+                                                                                     "value":  30,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a6",
+                                                                                     "name":  "minPerDisease",
+                                                                                     "value":  10,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a7",
+                                                                                     "name":  "minRecurring",
+                                                                                     "value":  3,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a8",
+                                                                                     "name":  "minForProposal",
+                                                                                     "value":  5,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a9",
+                                                                                     "name":  "periodEnd",
+                                                                                     "value":  "={{ $now.toUTC().toISO() }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a10",
+                                                                                     "name":  "periodStart",
+                                                                                     "value":  "={{ $now.toUTC().minus({ days: 90 }).toISO() }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "a11",
+                                                                                     "name":  "lookbackStart",
+                                                                                     "value":  "={{ $now.toUTC().minus({ days: 150 }).toISO() }}",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "5a8ab580-2046-4e6e-987e-8aab2e29b141",
+                      "name":  "Config",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       272,
+                                       224
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+
+                                     },
+                      "id":  "0b782a1d-9bd4-4099-8242-eec2c615ff18",
+                      "name":  "Manual Test Run",
+                      "type":  "n8n-nodes-base.manualTrigger",
+                      "typeVersion":  1,
+                      "position":  [
+                                       0,
+                                       192
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "getAll",
+                                         "tableId":  "assessments",
+                                         "limit":  "={{ $(\"Config\").first().json.maxRows }}",
+                                         "orderBy":  "created_at.desc",
+                                         "matchType":  "allFilters",
+                                         "filters":  {
+                                                         "conditions":  [
+                                                                            {
+                                                                                "keyName":  "created_at",
+                                                                                "condition":  "gte",
+                                                                                "keyValue":  "={{ $(\"Config\").first().json.lookbackStart }}"
+                                                                            },
+                                                                            {
+                                                                                "keyName":  "created_at",
+                                                                                "condition":  "lt",
+                                                                                "keyValue":  "={{ $(\"Config\").first().json.periodEnd }}"
+                                                                            }
+                                                                        ]
+                                                     }
+                                     },
+                      "id":  "8e164ea4-e0c0-43a2-990d-564467777414",
+                      "name":  "Get Assessments",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       496,
+                                       224
+                                   ],
+                      "alwaysOutputData":  true,
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "getAll",
+                                         "tableId":  "assessment_feedback",
+                                         "limit":  "={{ $(\"Config\").first().json.maxRows }}",
+                                         "orderBy":  "created_at.desc",
+                                         "matchType":  "allFilters",
+                                         "filters":  {
+                                                         "conditions":  [
+                                                                            {
+                                                                                "keyName":  "label_source",
+                                                                                "condition":  "eq",
+                                                                                "keyValue":  "expert_verified"
+                                                                            },
+                                                                            {
+                                                                                "keyName":  "created_at",
+                                                                                "condition":  "gte",
+                                                                                "keyValue":  "={{ $(\"Config\").first().json.periodStart }}"
+                                                                            },
+                                                                            {
+                                                                                "keyName":  "created_at",
+                                                                                "condition":  "lt",
+                                                                                "keyValue":  "={{ $(\"Config\").first().json.periodEnd }}"
+                                                                            }
+                                                                        ]
+                                                     }
+                                     },
+                      "id":  "294ffd5a-2b2b-4a7b-9752-9b1897513562",
+                      "name":  "Get Expert-Verified Feedback",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       720,
+                                       224
+                                   ],
+                      "alwaysOutputData":  true,
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "getAll",
+                                         "tableId":  "assessment_feedback",
+                                         "limit":  "={{ $(\"Config\").first().json.maxRows }}",
+                                         "orderBy":  "created_at.desc",
+                                         "matchType":  "allFilters",
+                                         "filters":  {
+                                                         "conditions":  [
+                                                                            {
+                                                                                "keyName":  "label_source",
+                                                                                "condition":  "eq",
+                                                                                "keyValue":  "farmer_report"
+                                                                            },
+                                                                            {
+                                                                                "keyName":  "created_at",
+                                                                                "condition":  "gte",
+                                                                                "keyValue":  "={{ $(\"Config\").first().json.periodStart }}"
+                                                                            },
+                                                                            {
+                                                                                "keyName":  "created_at",
+                                                                                "condition":  "lt",
+                                                                                "keyValue":  "={{ $(\"Config\").first().json.periodEnd }}"
+                                                                            }
+                                                                        ]
+                                                     }
+                                     },
+                      "id":  "4012acd8-dc7c-48c7-b36a-6cb62595e3c5",
+                      "name":  "Get Farmer-Reported Feedback",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       944,
+                                       224
+                                   ],
+                      "alwaysOutputData":  true,
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "getAll",
+                                         "tableId":  "risk_rule_versions",
+                                         "limit":  200,
+                                         "filterType":  "none"
+                                     },
+                      "id":  "c1fe501e-3ebe-436b-85b3-b89b713f2fcb",
+                      "name":  "Get Risk Rule Versions",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       1168,
+                                       224
+                                   ],
+                      "alwaysOutputData":  true,
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "\nconst cfg = $(\u0027Config\u0027).first().json;\nconst crypto = require(\u0027crypto\u0027);\nfunction rows(name) {\n  return $(name).all().map(function (i) { return i.json; }).filter(function (j) { return j \u0026\u0026 Object.keys(j).length \u003e 0 \u0026\u0026 !j.error; });\n}\nfunction P(x) {\n  if (typeof x === \u0027string\u0027) { try { return JSON.parse(x); } catch (e) { return null; } }\n  return x === undefined ? null : x;\n}\nfunction norm(s) { return typeof s === \u0027string\u0027 ? s.toLowerCase().replace(/[^a-z0-9]+/g, \u0027 \u0027).trim() : \u0027\u0027; }\nfunction rate(n, d) { return d \u003e 0 ? Math.round(n / d * 1000) / 1000 : null; }\nfunction mode(arr) {\n  const c = {}; let best = null;\n  arr.forEach(function (x) { if (x === null || x === undefined) return; c[x] = (c[x] || 0) + 1; if (best === null || c[x] \u003e c[best]) best = x; });\n  return best;\n}\nfunction uniq(arr) { return arr.filter(function (x, i) { return x !== null \u0026\u0026 x !== undefined \u0026\u0026 arr.indexOf(x) === i; }); }\n\nconst allA = rows(\u0027Get Assessments\u0027);\nconst expertFb = rows(\u0027Get Expert-Verified Feedback\u0027);\nconst farmerFb = rows(\u0027Get Farmer-Reported Feedback\u0027);\nconst ruleRows = rows(\u0027Get Risk Rule Versions\u0027);\nconst pStart = Date.parse(cfg.periodStart);\nconst inPeriod = allA.filter(function (a) { return Date.parse(a.created_at) \u003e= pStart; });\nconst amap = {};\nallA.forEach(function (a) { amap[a.id] = a; });\nconst MIN_V = cfg.minVerifiedForConclusive;\nconst MIN_D = cfg.minPerDisease;\nconst MIN_R = cfg.minRecurring;\nconst MIN_P = cfg.minForProposal;\n\n// ---------- Section 2: quality checks on the system\u0027s own outputs ----------\nconst CHECKS = [\u0027required_response_fields\u0027, \u0027risk_score_gating\u0027, \u0027model_and_source_recorded\u0027, \u0027intervention_evidence\u0027, \u0027uncertain_diagnosis_gating\u0027, \u0027advisory_version_agreement\u0027, \u0027error_or_partial_marked\u0027];\nconst stats = {};\nCHECKS.forEach(function (c) { stats[c] = { evaluated: 0, failed: 0, sampleAssessmentIds: [] }; });\nconst failures = [];\nfunction evalChecks(a) {\n  const d = P(a.diagnosis), w = P(a.weather), r = P(a.risk_assessment), adv = P(a.advisory);\n  let codes = P(a.error_codes);\n  if (!Array.isArray(codes)) codes = [];\n  const st = a.status;\n  const res = {};\n  function mark(id, reasons) { res[id] = reasons; }\n  const ageMin = (Date.now() - Date.parse(a.created_at)) / 60000;\n  if (!(st === \u0027completed\u0027 || st === \u0027partial\u0027 || st === \u0027failed\u0027)) {\n    if (ageMin \u003e 30) mark(\u0027error_or_partial_marked\u0027, [\u0027Assessment stuck in status \"\u0027 + st + \u0027\" for over 30 minutes; never reached a terminal status.\u0027]);\n    return res;\n  }\n  const scoreIssued = !!(r \u0026\u0026 r.score !== null \u0026\u0026 r.score !== undefined);\n  if (st !== \u0027failed\u0027) {\n    const miss = [];\n    if (!d) miss.push(\u0027diagnosis\u0027); else if (!d.status) miss.push(\u0027diagnosis.status\u0027);\n    if (!w) miss.push(\u0027weather\u0027); else if (!w.status) miss.push(\u0027weather.status\u0027);\n    if (!r) miss.push(\u0027riskAssessment\u0027); else if (!r.status) miss.push(\u0027riskAssessment.status\u0027);\n    if (!adv) miss.push(\u0027advisory\u0027); else { if (!adv.level) miss.push(\u0027advisory.level\u0027); if (!adv.summary) miss.push(\u0027advisory.summary\u0027); if (!adv.disclaimer) miss.push(\u0027advisory.disclaimer\u0027); }\n    mark(\u0027required_response_fields\u0027, miss.length ? [\u0027Missing required fields: \u0027 + miss.join(\u0027, \u0027)] : []);\n  }\n  if (r) {\n    const rs = [];\n    if (scoreIssued) {\n      if (r.status !== \u0027calculated\u0027) rs.push(\u0027Score issued while risk status is \"\u0027 + r.status + \u0027\".\u0027);\n      if (!d || !Array.isArray(d.candidates) || d.candidates.length === 0) rs.push(\u0027Score issued without a disease candidate.\u0027);\n      if (!w || w.status !== \u0027ok\u0027) rs.push(\u0027Score issued without a complete forecast (weather status: \u0027 + (w ? w.status : \u0027missing\u0027) + \u0027).\u0027);\n      if (Array.isArray(r.missingInputs) \u0026\u0026 r.missingInputs.length \u003e 0) rs.push(\u0027Score issued although missing inputs were listed.\u0027);\n    }\n    mark(\u0027risk_score_gating\u0027, rs);\n  }\n  if (st !== \u0027failed\u0027) {\n    const rs = [];\n    if (!a.risk_rule_version) rs.push(\u0027risk_rule_version not recorded.\u0027);\n    if (!a.model_name) rs.push(\u0027model_name not recorded.\u0027);\n    if (scoreIssued || (r \u0026\u0026 r.status === \u0027calculated\u0027)) {\n      if (!r.model || !r.model.name || !r.model.version) rs.push(\u0027Risk model name/version not recorded for a calculated risk.\u0027);\n      if (!Array.isArray(r.sourceUrls) || r.sourceUrls.length === 0) rs.push(\u0027No source references recorded for a calculated risk.\u0027);\n    }\n    mark(\u0027model_and_source_recorded\u0027, rs);\n  }\n  if (adv) {\n    const rs = [];\n    if (adv.level === \u0027verified_intervention\u0027) {\n      if (!Array.isArray(adv.sourceReferences) || adv.sourceReferences.length === 0) rs.push(\u0027Intervention recommended without source references.\u0027);\n      if (!r || !r.supportedInterventionWindow) rs.push(\u0027Intervention recommended without a supported intervention window.\u0027);\n      if (!adv.evidence || adv.evidence.diseaseModelAvailable !== true) rs.push(\u0027Intervention recommended without a disease-specific model.\u0027);\n      if (!adv.evidence || adv.evidence.forecastSufficient !== true) rs.push(\u0027Intervention recommended without a sufficient forecast.\u0027);\n    }\n    if (adv.chemicalRecommendation \u0026\u0026 (!Array.isArray(adv.sourceReferences) || adv.sourceReferences.length === 0)) rs.push(\u0027Chemical recommendation present without source references.\u0027);\n    mark(\u0027intervention_evidence\u0027, rs);\n  }\n  if (d \u0026\u0026 adv) {\n    const q = d.imageQuality ? d.imageQuality.rating : null;\n    const uncertain = d.status === \u0027inconclusive\u0027 || d.status === \u0027failed\u0027 || q === \u0027poor\u0027 || q === \u0027unusable\u0027 || d.cropMatchesSelection === false;\n    const rs = [];\n    if (uncertain) {\n      if (adv.level === \u0027verified_intervention\u0027) rs.push(\u0027Uncertain diagnosis was not gated: advisory level is verified_intervention.\u0027);\n      if (scoreIssued) rs.push(\u0027Uncertain diagnosis was not gated: a risk score was issued.\u0027);\n      if (d.status === \u0027candidate_identified\u0027 \u0026\u0026 (q === \u0027poor\u0027 || q === \u0027unusable\u0027 || d.cropMatchesSelection === false)) rs.push(\u0027Low-quality or crop-mismatched image still marked candidate_identified.\u0027);\n    }\n    mark(\u0027uncertain_diagnosis_gating\u0027, rs);\n  }\n  {\n    const rs = [];\n    if (r \u0026\u0026 r.riskRuleVersion !== undefined \u0026\u0026 (a.risk_rule_version || null) !== (r.riskRuleVersion || null)) rs.push(\u0027Stored risk_rule_version differs from the version inside the risk assessment.\u0027);\n    if (d \u0026\u0026 d.model \u0026\u0026 (a.model_name || null) !== (d.model.name || null)) rs.push(\u0027Stored model_name differs from the diagnosis model.\u0027);\n    if (r \u0026\u0026 r.model \u0026\u0026 (a.model_version || null) !== (r.model.version || null)) rs.push(\u0027Stored model_version differs from the risk model version.\u0027);\n    if (st !== \u0027failed\u0027 || r) mark(\u0027advisory_version_agreement\u0027, rs);\n  }\n  {\n    const rs = [];\n    const dFailed = !!(d \u0026\u0026 d.status === \u0027failed\u0027);\n    const wBad = !!(w \u0026\u0026 (w.status === \u0027unavailable\u0027 || w.status === \u0027partial\u0027));\n    const signal = dFailed || wBad;\n    if (signal \u0026\u0026 st === \u0027completed\u0027) rs.push(\u0027Marked completed although a component failed or returned partial data.\u0027);\n    if ((signal || st === \u0027partial\u0027 || st === \u0027failed\u0027) \u0026\u0026 codes.length === 0) rs.push(\u0027Partial/failed result has no error codes recorded.\u0027);\n    if (!signal \u0026\u0026 st === \u0027completed\u0027 \u0026\u0026 codes.length \u003e 0) rs.push(\u0027Completed result carries error codes: \u0027 + codes.join(\u0027, \u0027));\n    mark(\u0027error_or_partial_marked\u0027, rs);\n  }\n  return res;\n}\ninPeriod.forEach(function (a) {\n  const res = evalChecks(a);\n  Object.keys(res).forEach(function (id) {\n    stats[id].evaluated++;\n    if (res[id].length \u003e 0) {\n      stats[id].failed++;\n      if (stats[id].sampleAssessmentIds.length \u003c 5) stats[id].sampleAssessmentIds.push(a.id);\n      res[id].forEach(function (reason) { failures.push({ assessment_id: a.id, check: id, category: \u0027technical_failure\u0027, reason: reason }); });\n    }\n  });\n});\nconst qualityChecks = {};\nCHECKS.forEach(function (c) {\n  qualityChecks[c] = { evaluated: stats[c].evaluated, failed: stats[c].failed, passRate: rate(stats[c].evaluated - stats[c].failed, stats[c].evaluated), sampleAssessmentIds: stats[c].sampleAssessmentIds };\n});\nconst failureReasonCounts = {};\nfailures.forEach(function (f) { const k = f.check + \u0027 :: \u0027 + f.reason; failureReasonCounts[k] = (failureReasonCounts[k] || 0) + 1; });\nconst failureSummary = Object.keys(failureReasonCounts).map(function (k) { return { reason: k, count: failureReasonCounts[k] }; }).sort(function (x, y) { return y.count - x.count; }).slice(0, 25);\n\n// ---------- Coverage ----------\nlet defensibleDx = 0, riskCalc = 0, abstainDx = 0, failedDx = 0;\nconst missingVarCounts = {};\ninPeriod.forEach(function (a) {\n  const d = P(a.diagnosis), w = P(a.weather), r = P(a.risk_assessment);\n  const q = d \u0026\u0026 d.imageQuality ? d.imageQuality.rating : null;\n  if (d \u0026\u0026 (d.status === \u0027candidate_identified\u0027 || d.status === \u0027no_visible_symptoms\u0027) \u0026\u0026 q !== \u0027poor\u0027 \u0026\u0026 q !== \u0027unusable\u0027) defensibleDx++;\n  else if (d \u0026\u0026 d.status === \u0027failed\u0027) failedDx++;\n  else abstainDx++;\n  if (r \u0026\u0026 r.status === \u0027calculated\u0027) riskCalc++;\n  if (w \u0026\u0026 Array.isArray(w.missingVariables)) w.missingVariables.forEach(function (v) { missingVarCounts[v] = (missingVarCounts[v] || 0) + 1; });\n  if (w \u0026\u0026 Array.isArray(w.variablesWithGaps)) w.variablesWithGaps.forEach(function (v) { missingVarCounts[v + \u0027 (gaps)\u0027] = (missingVarCounts[v + \u0027 (gaps)\u0027] || 0) + 1; });\n});\nconst coverage = {\n  n: inPeriod.length,\n  diagnosticCoverage: rate(defensibleDx, inPeriod.length),\n  diagnosticDefensible: defensibleDx,\n  diagnosticAbstained: abstainDx,\n  diagnosticTechnicalFailures: failedDx,\n  riskAssessmentCoverage: rate(riskCalc, inPeriod.length),\n  riskCalculated: riskCalc,\n  riskAbstainedOrUnavailable: inPeriod.length - riskCalc\n};\n\n// ---------- Section 3: formal evaluation, expert-verified only ----------\nconst latestByAssessment = {};\nconst conflicts = {};\nexpertFb.forEach(function (fb) {\n  const prev = latestByAssessment[fb.assessment_id];\n  if (!prev) { latestByAssessment[fb.assessment_id] = fb; return; }\n  const sameLabel = prev.disease_observed === fb.disease_observed \u0026\u0026 norm(prev.confirmed_disease) === norm(fb.confirmed_disease);\n  if (!sameLabel) conflicts[fb.assessment_id] = true;\n  if (Date.parse(fb.created_at) \u003e Date.parse(prev.created_at)) latestByAssessment[fb.assessment_id] = fb;\n});\nconst excluded = { notEligibleFlag: 0, assessmentNotFound: 0, labelUnknown: 0, conflictingExpertLabels: 0, diagnosisTechnicalFailure: 0 };\nconst cases = [];\nObject.keys(latestByAssessment).forEach(function (id) {\n  const fb = latestByAssessment[id];\n  const a = amap[id];\n  if (!a) { excluded.assessmentNotFound++; return; }\n  if (conflicts[id]) { excluded.conflictingExpertLabels++; return; }\n  if (fb.evaluation_eligible !== true) { excluded.notEligibleFlag++; return; }\n  if (fb.disease_observed === \u0027unknown\u0027 || (fb.disease_observed === \u0027true\u0027 \u0026\u0026 !norm(fb.confirmed_disease))) { excluded.labelUnknown++; return; }\n  const d = P(a.diagnosis), r = P(a.risk_assessment), adv = P(a.advisory), w = P(a.weather);\n  const truth = fb.disease_observed === \u0027false\u0027 ? \u0027healthy\u0027 : norm(fb.confirmed_disease);\n  let pred = null, outcome = null;\n  if (!d || d.status === \u0027failed\u0027) { excluded.diagnosisTechnicalFailure++; return; }\n  if (d.status === \u0027inconclusive\u0027) outcome = \u0027abstained\u0027;\n  else if (d.status === \u0027no_visible_symptoms\u0027) { pred = \u0027healthy\u0027; outcome = \u0027answered\u0027; }\n  else if (d.status === \u0027candidate_identified\u0027 \u0026\u0026 d.candidates \u0026\u0026 d.candidates.length) { pred = norm(d.candidates[0].name); outcome = \u0027answered\u0027; }\n  else outcome = \u0027abstained\u0027;\n  const riskCalculated = !!(r \u0026\u0026 r.status === \u0027calculated\u0027);\n  const predictedAlert = riskCalculated \u0026\u0026 (adv \u0026\u0026 adv.level === \u0027verified_intervention\u0027 || (r \u0026\u0026 (r.alertLevel === \u0027high\u0027 || r.alert === true)));\n  let avgRh = null, avgT = null;\n  if (w \u0026\u0026 Array.isArray(w.hourly) \u0026\u0026 w.hourly.length) {\n    const rh = w.hourly.map(function (h) { return h.relativeHumidityPct; }).filter(function (x) { return typeof x === \u0027number\u0027; });\n    const tt = w.hourly.map(function (h) { return h.temperatureC; }).filter(function (x) { return typeof x === \u0027number\u0027; });\n    if (rh.length) avgRh = Math.round(rh.reduce(function (s, x) { return s + x; }, 0) / rh.length * 10) / 10;\n    if (tt.length) avgT = Math.round(tt.reduce(function (s, x) { return s + x; }, 0) / tt.length * 10) / 10;\n  }\n  cases.push({\n    assessmentId: id, crop: norm(a.crop_type), observedCrop: norm(fb.observed_crop_type), truth: truth, pred: pred, outcome: outcome,\n    version: (a.model_name || \u0027unknown\u0027) + \u0027 | \u0027 + (a.model_version || \u0027no-risk-model\u0027) + \u0027 | \u0027 + (a.risk_rule_version || \u0027unknown\u0027),\n    cropFlaggedByModel: !!(d \u0026\u0026 d.cropMatchesSelection === false),\n    riskCalculated: riskCalculated, predictedAlert: !!predictedAlert, daysAfter: fb.days_after_assessment === undefined ? null : fb.days_after_assessment,\n    diseaseObserved: fb.disease_observed, avgRh: avgRh, avgT: avgT\n  });\n});\nconst answered = cases.filter(function (c) { return c.outcome === \u0027answered\u0027; });\nconst correct = answered.filter(function (c) { return c.pred === c.truth; });\nconst labelSet = uniq(cases.map(function (c) { return c.truth; }).concat(answered.map(function (c) { return c.pred; })));\nconst perDisease = labelSet.map(function (lab) {\n  const tp = answered.filter(function (c) { return c.pred === lab \u0026\u0026 c.truth === lab; }).length;\n  const fp = answered.filter(function (c) { return c.pred === lab \u0026\u0026 c.truth !== lab; }).length;\n  const fn = cases.filter(function (c) { return c.truth === lab \u0026\u0026 (c.outcome === \u0027abstained\u0027 || c.pred !== lab); }).length;\n  const support = cases.filter(function (c) { return c.truth === lab; }).length;\n  return {\n    label: lab, crops: uniq(cases.filter(function (c) { return c.truth === lab; }).map(function (c) { return c.crop; })),\n    verifiedSupport: support, predictedCount: tp + fp, truePositive: tp, falsePositive: fp, falseNegativeIncludingAbstained: fn,\n    precision: rate(tp, tp + fp), recall: rate(tp, tp + fn), status: support \u003e= MIN_D ? \u0027reportable\u0027 : \u0027inconclusive_small_sample\u0027\n  };\n}).sort(function (x, y) { return y.verifiedSupport - x.verifiedSupport; });\nconst versionKeys = uniq(cases.map(function (c) { return c.version; }));\nconst byVersion = versionKeys.map(function (v) {\n  const cs = cases.filter(function (c) { return c.version === v; });\n  const an = cs.filter(function (c) { return c.outcome === \u0027answered\u0027; });\n  const ok = an.filter(function (c) { return c.pred === c.truth; }).length;\n  return { version: v, verifiedCases: cs.length, answered: an.length, abstained: cs.length - an.length, accuracy: rate(ok, an.length), status: an.length \u003e= MIN_V ? \u0027reportable\u0027 : \u0027inconclusive_small_sample\u0027 };\n});\nconst cropKeys = uniq(cases.map(function (c) { return c.crop; }));\nconst perCrop = cropKeys.map(function (cr) {\n  const cs = cases.filter(function (c) { return c.crop === cr; });\n  const an = cs.filter(function (c) { return c.outcome === \u0027answered\u0027; });\n  return { crop: cr, verifiedCases: cs.length, answered: an.length, abstained: cs.length - an.length, accuracy: rate(an.filter(function (c) { return c.pred === c.truth; }).length, an.length), status: an.length \u003e= MIN_D ? \u0027reportable\u0027 : \u0027inconclusive_small_sample\u0027 };\n});\nconst diagnostic = {\n  status: cases.length === 0 ? \u0027insufficient_data\u0027 : (cases.length \u003c MIN_V ? \u0027inconclusive\u0027 : \u0027reportable\u0027),\n  eligibleVerifiedExamples: cases.length, answered: answered.length, abstained: cases.length - answered.length,\n  accuracyOnAnswered: rate(correct.length, answered.length), coverageOnVerified: rate(answered.length, cases.length),\n  minVerifiedForConclusive: MIN_V, perDisease: perDisease, perCrop: perCrop, byModelAndRuleVersion: byVersion,\n  note: \u0027Top-1 candidate name vs expert-confirmed disease (normalized text match). Abstentions count as missed for recall, not as errors for accuracy.\u0027\n};\n\n// Temporal alert evaluation (only for cases where a risk timeline was actually calculated)\nconst EV = cfg.eventWindowDays;\nconst alertCases = cases.filter(function (c) { return c.riskCalculated; });\nlet aTP = 0, aFP = 0, aFN = 0, aTN = 0, aExcluded = 0;\nalertCases.forEach(function (c) {\n  const event = c.truth !== \u0027healthy\u0027;\n  if (event \u0026\u0026 c.daysAfter !== null \u0026\u0026 c.daysAfter \u003e EV) { aExcluded++; return; }\n  if (!event \u0026\u0026 (c.daysAfter === null || c.daysAfter \u003c EV)) { aExcluded++; return; }\n  if (c.predictedAlert \u0026\u0026 event) aTP++; else if (c.predictedAlert \u0026\u0026 !event) aFP++; else if (!c.predictedAlert \u0026\u0026 event) aFN++; else aTN++;\n});\nconst eventCases = cases.filter(function (c) { return c.truth !== \u0027healthy\u0027; });\nconst eventNoCalc = eventCases.filter(function (c) { return !c.riskCalculated; }).length;\nconst alertN = aTP + aFP + aFN + aTN;\nconst alerts = {\n  status: alertCases.length === 0 ? \u0027insufficient_data\u0027 : (alertN \u003c MIN_V ? \u0027inconclusive\u0027 : \u0027reportable\u0027),\n  eventWindowDays: EV, verifiedCasesWithCalculatedRisk: alertCases.length, usableForAlertMetrics: alertN, excludedForTimingOrFollowUp: aExcluded,\n  truePositive: aTP, falsePositive: aFP, missedEvents: aFN, trueNegative: aTN,\n  precision: rate(aTP, aTP + aFP), recall: rate(aTP, aTP + aFN),\n  observedDiseaseEventsWithNoCalculatedRisk: eventNoCalc, verifiedEventsTotal: eventCases.length,\n  note: \u0027Alert = verified_intervention advisory or an explicit high alert flag on a calculated risk. Cases where no risk was calculated are reported as abstentions, never as correct non-alerts.\u0027\n};\nconst calibration = { computed: false, reason: \u0027The risk output is an environmental-suitability index, not a calibrated outbreak probability. No calibration metric (Brier, reliability) is computed.\u0027 };\n\n// ---------- Farmer-reported (secondary, unverified) ----------\nconst outcomeCounts = {}, reportedDiseases = {};\nlet helpfulYes = 0, helpfulNo = 0;\nfarmerFb.forEach(function (f) {\n  outcomeCounts[f.outcome_status] = (outcomeCounts[f.outcome_status] || 0) + 1;\n  if (f.confirmed_disease) { const k = norm(f.confirmed_disease); reportedDiseases[k] = (reportedDiseases[k] || 0) + 1; }\n  if (f.farmer_found_advisory_helpful === true) helpfulYes++;\n  if (f.farmer_found_advisory_helpful === false) helpfulNo++;\n});\nconst farmerReported = {\n  verificationStatus: \u0027unverified_farmer_report\u0027, usedForFormalMetrics: false, n: farmerFb.length,\n  outcomeStatusCounts: outcomeCounts, reportedDiseaseCounts: reportedDiseases, advisoryHelpful: { yes: helpfulYes, no: helpfulNo, notAnswered: farmerFb.length - helpfulYes - helpfulNo },\n  note: \u0027Qualitative only. Not ground truth and never mixed into expert-verified metrics.\u0027\n};\n\n// ---------- Section 4: systematic weaknesses ----------\nconst weaknesses = [];\nfunction add(type, category, subject, count, n, note) { weaknesses.push({ type: type, category: category, subject: subject, count: count, n: n, recurring: count \u003e= MIN_R, note: note }); }\nCHECKS.forEach(function (c) { if (stats[c].failed \u003e 0) add(\u0027repeated_quality_check_failure\u0027, \u0027technical_failure\u0027, c, stats[c].failed, stats[c].evaluated, \u0027Deterministic quality check failed on stored assessments.\u0027); });\nObject.keys(missingVarCounts).forEach(function (v) { add(\u0027missing_forecast_variable\u0027, \u0027technical_failure\u0027, v, missingVarCounts[v], inPeriod.length, \u0027Forecast variable missing or with gaps.\u0027); });\nconst inconclusiveByCrop = {};\ninPeriod.forEach(function (a) { const d = P(a.diagnosis); if (d \u0026\u0026 d.status === \u0027inconclusive\u0027) { const k = norm(a.crop_type) || \u0027unknown\u0027; inconclusiveByCrop[k] = (inconclusiveByCrop[k] || 0) + 1; } });\nObject.keys(inconclusiveByCrop).forEach(function (k) { add(\u0027repeated_inconclusive_image_assessment\u0027, \u0027uncertain_label\u0027, k, inconclusiveByCrop[k], inPeriod.length, \u0027Image assessments repeatedly inconclusive for this crop (diagnosis abstention, not necessarily an error).\u0027); });\nconst cropMis = {};\ncases.forEach(function (c) { if (c.observedCrop \u0026\u0026 c.observedCrop !== c.crop) { const k = c.crop + \u0027 -\u003e \u0027 + c.observedCrop; cropMis[k] = (cropMis[k] || 0) + 1; } });\nObject.keys(cropMis).forEach(function (k) { add(\u0027crop_misidentified\u0027, \u0027diagnostic_error\u0027, k, cropMis[k], cases.length, \u0027Expert-observed crop differs from the crop used in the assessment.\u0027); });\nconst flaggedMismatch = cases.filter(function (c) { return c.cropFlaggedByModel; }).length;\nif (flaggedMismatch \u003e 0) add(\u0027model_flagged_crop_mismatch\u0027, \u0027uncertain_label\u0027, \u0027all crops\u0027, flaggedMismatch, cases.length, \u0027Model said the photographed plant may not match the selected crop.\u0027);\nif (alerts.falsePositive \u003e 0) add(\u0027high_risk_alert_not_confirmed\u0027, \u0027risk_model_error\u0027, \u0027alerts\u0027, alerts.falsePositive, alerts.usableForAlertMetrics, \u0027Alerts not followed by expert-confirmed disease within the event window.\u0027);\nif (alerts.missedEvents \u003e 0) add(\u0027disease_event_without_warning\u0027, \u0027risk_model_error\u0027, \u0027alerts\u0027, alerts.missedEvents, alerts.usableForAlertMetrics, \u0027Expert-confirmed disease events with a calculated risk but no alert.\u0027);\nif (eventNoCalc \u003e 0) add(\u0027disease_event_without_calculated_risk\u0027, \u0027risk_model_error\u0027, \u0027no risk model\u0027, eventNoCalc, eventCases.length, \u0027Verified disease events where the system had no calculated risk (abstained).\u0027);\nperDisease.forEach(function (p) {\n  if (p.label !== \u0027healthy\u0027 \u0026\u0026 p.verifiedSupport \u003c MIN_D) add(\u0027insufficient_verified_data\u0027, \u0027uncertain_label\u0027, p.label, p.verifiedSupport, cases.length, \u0027Fewer than \u0027 + MIN_D + \u0027 verified cases; metrics are inconclusive.\u0027);\n  if (p.label !== \u0027healthy\u0027 \u0026\u0026 p.verifiedSupport \u003e= MIN_D \u0026\u0026 p.recall !== null \u0026\u0026 p.recall \u003c 0.5) add(\u0027low_recall_disease\u0027, \u0027diagnostic_error\u0027, p.label, p.falseNegativeIncludingAbstained, p.verifiedSupport, \u0027Recall below 0.5 with an adequate sample.\u0027);\n  if (p.label !== \u0027healthy\u0027 \u0026\u0026 p.verifiedSupport \u003e= MIN_D \u0026\u0026 p.precision !== null \u0026\u0026 p.precision \u003c 0.5) add(\u0027low_precision_disease\u0027, \u0027diagnostic_error\u0027, p.label, p.falsePositive, p.predictedCount, \u0027Precision below 0.5 with an adequate sample.\u0027);\n});\nif (excluded.labelUnknown \u003e 0) add(\u0027unknown_expert_labels\u0027, \u0027uncertain_label\u0027, \u0027expert feedback\u0027, excluded.labelUnknown, expertFb.length, \u0027Expert feedback with unknown outcome excluded from metrics.\u0027);\nif (excluded.conflictingExpertLabels \u003e 0) add(\u0027conflicting_expert_labels\u0027, \u0027uncertain_label\u0027, \u0027expert feedback\u0027, excluded.conflictingExpertLabels, expertFb.length, \u0027Assessments with conflicting expert labels excluded.\u0027);\n\n// ---------- Section 6: similar verified cases for context ----------\nfunction similar(crop, disease) {\n  return cases.filter(function (c) { return c.crop === crop \u0026\u0026 (c.truth === disease || c.pred === disease); }).slice(0, 3).map(function (c) {\n    return { assessmentId: c.assessmentId, crop: c.crop, expertLabel: c.truth, systemLabel: c.outcome === \u0027answered\u0027 ? c.pred : \u0027abstained\u0027, ruleVersion: c.version, avgRelativeHumidityPct: c.avgRh, avgTemperatureC: c.avgT };\n  });\n}\n\n// ---------- Run identity, versions, limitations, status ----------\nconst periodStartDay = String(cfg.periodStart).slice(0, 10);\nconst periodEndDay = String(cfg.periodEnd).slice(0, 10);\nconst ids = inPeriod.map(function (a) { return a.id; }).sort();\nconst fids = expertFb.concat(farmerFb).map(function (f) { return f.id; }).sort();\nconst runKey = \u0027eval-\u0027 + crypto.createHash(\u0027sha256\u0027).update(JSON.stringify([periodStartDay, periodEndDay, ids, fids, ruleRows.map(function (r) { return r.id || r.version; }).sort()])).digest(\u0027hex\u0027).slice(0, 32);\nconst modelVersionStr = uniq(inPeriod.map(function (a) { return (a.model_name || \u0027unknown\u0027) + \u0027/\u0027 + (a.model_version || \u0027none\u0027); })).slice(0, 5).join(\u0027, \u0027) || \u0027none\u0027;\nconst ruleVersions = uniq(inPeriod.map(function (a) { return a.risk_rule_version; }));\nconst ruleVersionStr = ruleVersions.join(\u0027, \u0027) || \u0027none\u0027;\nconst limitations = [\n  \u0027Only expert-verified feedback is used for formal metrics; farmer reports are secondary and unverified.\u0027,\n  \u0027Risk output is an environmental-suitability index, not a calibrated probability; no calibration was computed.\u0027,\n  \u0027Results describe past system outputs. No model parameters were retrained and no live rule was changed.\u0027,\n  \u0027Expert-verified cases may be biased towards cases that were severe, suspicious or easy to reach for experts.\u0027,\n  \u0027Disease matching uses normalized text of disease names; synonyms may be counted as errors.\u0027,\n  \u0027Data was bounded to \u0027 + cfg.maxRows + \u0027 rows per query; truncation is recorded in sampleSizes.\u0027\n];\nconst trunc = { assessments: allA.length \u003e= cfg.maxRows, expertFeedback: expertFb.length \u003e= cfg.maxRows, farmerFeedback: farmerFb.length \u003e= cfg.maxRows };\nif (trunc.assessments || trunc.expertFeedback || trunc.farmerFeedback) limitations.push(\u0027At least one query hit the row cap, so the dataset may be incomplete.\u0027);\nif (cases.length === 0) limitations.push(\u0027No eligible expert-verified outcomes exist, so no predictive-performance metric was computed.\u0027);\nelse if (cases.length \u003c MIN_V) limitations.push(\u0027Fewer than \u0027 + MIN_V + \u0027 verified examples: predictive metrics are inconclusive.\u0027);\nconst evaluationStatus = cases.length === 0 ? \u0027insufficient_data\u0027 : (cases.length \u003c MIN_V ? \u0027inconclusive\u0027 : \u0027completed\u0027);\n\nconst metrics = {\n  schemaVersion: 1, runKey: runKey, evaluatedAt: new Date().toISOString(),\n  config: { windowDays: cfg.windowDays, eventWindowDays: EV, minVerifiedForConclusive: MIN_V, minPerDisease: MIN_D, minRecurring: MIN_R, minForProposal: MIN_P },\n  sampleSizes: {\n    assessmentsInPeriod: inPeriod.length, assessmentsLoadedIncludingLookback: allA.length,\n    expertVerifiedFeedbackRows: expertFb.length, formalEvaluationEligible: cases.length, excluded: excluded,\n    farmerReportRows: farmerFb.length, truncatedAtRowCap: trunc,\n    assessmentsInPeriodWithoutExpertLabel: inPeriod.filter(function (a) { return !latestByAssessment[a.id]; }).length\n  },\n  versions: { riskRuleVersionsSeen: ruleVersions, registeredRuleVersions: ruleRows.length },\n  qualityChecks: qualityChecks, qualityFailureReasons: failureSummary, qualityFailuresTotal: failures.length,\n  coverage: coverage, diagnostic: diagnostic, alerts: alerts, calibration: calibration, farmerReported: farmerReported, weaknesses: weaknesses\n};\n\n// ---------- Section 6: proposals (never activated) ----------\nconst existingVersions = ruleRows.map(function (r) { return r.version || r.version_name || r.id; });\nconst parent = mode(inPeriod.map(function (a) { return a.risk_rule_version; })) || null;\nconst srcUrls = uniq([].concat.apply([], inPeriod.map(function (a) { const r = P(a.risk_assessment); return r \u0026\u0026 Array.isArray(r.sourceUrls) ? r.sourceUrls : []; }))).slice(0, 10);\nconst proposals = [];\nfunction propose(changeType, title, description, evidence) {\n  const version = \u0027proposed-\u0027 + runKey.slice(5, 13) + \u0027-\u0027 + (proposals.length + 1);\n  if (existingVersions.indexOf(version) !== -1) return;\n  proposals.push({\n    version: version, status: \u0027proposed\u0027, parent_version: parent, change_type: changeType, title: title, description: description,\n    evidence: evidence, source_references: [\u0027evaluation_run:\u0027 + runKey].concat(srcUrls),\n    requires_expert_review: true, regression_test_status: \u0027required_not_run\u0027, regression_test_result: null,\n    evaluation_run_key: runKey, activated_at: null, created_by: \u0027agrisentry-evaluation-workflow\u0027\n  });\n}\nCHECKS.forEach(function (c) {\n  if (stats[c].failed \u003e= MIN_P) {\n    propose(\u0027validation_or_prompt_review\u0027, \u0027Review validation for \u0027 + c,\n      \u0027The deterministic check \"\u0027 + c + \u0027\" failed \u0027 + stats[c].failed + \u0027 of \u0027 + stats[c].evaluated + \u0027 times. Review response validation or advisory gating logic; this is a workflow reliability issue, not evidence about disease biology.\u0027,\n      { check: c, failed: stats[c].failed, evaluated: stats[c].evaluated, sampleAssessmentIds: stats[c].sampleAssessmentIds, topReasons: failureSummary.filter(function (f) { return f.reason.indexOf(c + \u0027 ::\u0027) === 0; }).slice(0, 3) });\n  }\n});\nif (alerts.status === \u0027reportable\u0027 \u0026\u0026 (alerts.falsePositive \u003e= MIN_P || alerts.missedEvents \u003e= MIN_P)) {\n  const topDisease = eventCases.length ? eventCases[0].truth : null;\n  propose(\u0027risk_rule_review\u0027, \u0027Review alert thresholds against verified outcomes\u0027,\n    \u0027Verified outcomes show \u0027 + alerts.falsePositive + \u0027 unconfirmed alerts and \u0027 + alerts.missedEvents + \u0027 missed events out of \u0027 + alerts.usableForAlertMetrics + \u0027 usable cases. An expert should review the disease-specific rule against its source methodology. Rules must not be changed from outcome counts alone.\u0027,\n    { alerts: alerts, similarVerifiedCases: topDisease ? similar(eventCases[0].crop, topDisease) : [] });\n}\nif (diagnostic.status === \u0027reportable\u0027) {\n  perDisease.forEach(function (p) {\n    if (p.label !== \u0027healthy\u0027 \u0026\u0026 p.verifiedSupport \u003e= MIN_D \u0026\u0026 ((p.recall !== null \u0026\u0026 p.recall \u003c 0.5) || (p.precision !== null \u0026\u0026 p.precision \u003c 0.5)) \u0026\u0026 proposals.length \u003c 10) {\n      propose(\u0027prompt_review\u0027, \u0027Review image-analysis prompt for \u0027 + p.label,\n        \u0027With \u0027 + p.verifiedSupport + \u0027 verified cases, precision is \u0027 + p.precision + \u0027 and recall is \u0027 + p.recall + \u0027 for \"\u0027 + p.label + \u0027\". Review the image-analysis prompt and candidate handling; do not alter the deterministic risk calculation.\u0027,\n        { disease: p.label, metrics: p, similarVerifiedCases: similar(p.crops[0] || \u0027\u0027, p.label) });\n    }\n  });\n}\n\nconst runRow = {\n  run_key: runKey, period_start: cfg.periodStart, period_end: cfg.periodEnd, dataset_size: inPeriod.length,\n  expert_verified_size: expertFb.length, metrics: metrics, model_version: modelVersionStr, risk_rule_version: ruleVersionStr,\n  limitations: limitations, evaluation_status: evaluationStatus, workflow_execution_id: String($execution.id), created_at: new Date().toISOString()\n};\nreturn [{ json: { runKey: runKey, runRow: runRow, proposals: proposals, failedChecks: failures.slice(0, 200) } }];\n"
+                                     },
+                      "id":  "ac945b40-44dd-47a9-a361-1b89e7fa4436",
+                      "name":  "Evaluate Quality, Performance and Weaknesses",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       800,
+                                       224
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "getAll",
+                                         "tableId":  "evaluation_runs",
+                                         "limit":  1,
+                                         "matchType":  "allFilters",
+                                         "filters":  {
+                                                         "conditions":  [
+                                                                            {
+                                                                                "keyName":  "run_key",
+                                                                                "condition":  "eq",
+                                                                                "keyValue":  "={{ $json.runKey }}"
+                                                                            }
+                                                                        ]
+                                                     }
+                                     },
+                      "id":  "c79ce381-cba4-4ab8-852b-1d2e99f799f8",
+                      "name":  "Lookup Existing Run",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       1024,
+                                       224
+                                   ],
+                      "alwaysOutputData":  true,
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "dup",
+                                                                                   "leftValue":  "={{ Object.keys($json).length \u003e 0 }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "c9a4007a-b0a5-49f9-bee6-4aa6fac5d97a",
+                      "name":  "Run Already Recorded?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.3,
+                      "position":  [
+                                       1248,
+                                       224
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+
+                                     },
+                      "id":  "009effb9-0683-47ed-abc4-d17dbb9128a6",
+                      "name":  "Skip - Duplicate Run",
+                      "type":  "n8n-nodes-base.noOp",
+                      "typeVersion":  1,
+                      "position":  [
+                                       1440,
+                                       0
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "return [{ json: $(\u0027Evaluate Quality, Performance and Weaknesses\u0027).first().json.runRow }];"
+                                     },
+                      "id":  "7e98c009-147b-4dca-b9dc-928daed3133c",
+                      "name":  "Prepare Run Row",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1328,
+                                       320
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "tableId":  "evaluation_runs",
+                                         "dataToSend":  "autoMapInputData"
+                                     },
+                      "id":  "05ed12f8-62a9-46fb-9b5f-30fb0aac953e",
+                      "name":  "Create Evaluation Run",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       1552,
+                                       320
+                                   ],
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const p = $(\u0027Evaluate Quality, Performance and Weaknesses\u0027).first().json.proposals || [];\nreturn p.map(function (x) { return { json: x }; });"
+                                     },
+                      "id":  "36e6710c-3e6d-4ec0-a2ce-fd286e955831",
+                      "name":  "Prepare Proposed Rule Versions",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1856,
+                                       320
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "tableId":  "risk_rule_versions",
+                                         "dataToSend":  "autoMapInputData"
+                                     },
+                      "id":  "473d6608-a91e-4457-bfab-a9a215d9cedc",
+                      "name":  "Create Proposed Rule Version",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       2080,
+                                       320
+                                   ],
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "api/v1/evaluations/run",
+                                         "authentication":  "none",
+                                         "responseMode":  "lastNode",
+                                         "options":  {
+                                                         "allowedOrigins":  "*"
+                                                     }
+                                     },
+                      "id":  "b22b1028-4ef7-47ab-9e32-23118cf938ac",
+                      "name":  "Trigger Evaluation Run",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       0,
+                                       384
+                                   ]
+                  }
+              ],
+    "pinData":  {
+
+                },
+    "connections":  {
+                        "Weekly Evaluation Schedule":  {
+                                                           "main":  [
+                                                                        [
+                                                                            {
+                                                                                "node":  "Config",
+                                                                                "type":  "main",
+                                                                                "index":  0
+                                                                            }
+                                                                        ]
+                                                                    ]
+                                                       },
+                        "Config":  {
+                                       "main":  [
+                                                    [
+                                                        {
+                                                            "node":  "Get Assessments",
+                                                            "type":  "main",
+                                                            "index":  0
+                                                        }
+                                                    ]
+                                                ]
+                                   },
+                        "Manual Test Run":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Config",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Get Assessments":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Get Expert-Verified Feedback",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Get Expert-Verified Feedback":  {
+                                                             "main":  [
+                                                                          [
+                                                                              {
+                                                                                  "node":  "Get Farmer-Reported Feedback",
+                                                                                  "type":  "main",
+                                                                                  "index":  0
+                                                                              }
+                                                                          ]
+                                                                      ]
+                                                         },
+                        "Get Farmer-Reported Feedback":  {
+                                                             "main":  [
+                                                                          [
+                                                                              {
+                                                                                  "node":  "Get Risk Rule Versions",
+                                                                                  "type":  "main",
+                                                                                  "index":  0
+                                                                              }
+                                                                          ]
+                                                                      ]
+                                                         },
+                        "Get Risk Rule Versions":  {
+                                                       "main":  [
+                                                                    [
+                                                                        {
+                                                                            "node":  "Evaluate Quality, Performance and Weaknesses",
+                                                                            "type":  "main",
+                                                                            "index":  0
+                                                                        }
+                                                                    ]
+                                                                ]
+                                                   },
+                        "Evaluate Quality, Performance and Weaknesses":  {
+                                                                             "main":  [
+                                                                                          [
+                                                                                              {
+                                                                                                  "node":  "Lookup Existing Run",
+                                                                                                  "type":  "main",
+                                                                                                  "index":  0
+                                                                                              }
+                                                                                          ]
+                                                                                      ]
+                                                                         },
+                        "Lookup Existing Run":  {
+                                                    "main":  [
+                                                                 [
+                                                                     {
+                                                                         "node":  "Run Already Recorded?",
+                                                                         "type":  "main",
+                                                                         "index":  0
+                                                                     }
+                                                                 ]
+                                                             ]
+                                                },
+                        "Run Already Recorded?":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Skip - Duplicate Run",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ],
+                                                                   [
+                                                                       {
+                                                                           "node":  "Prepare Run Row",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  },
+                        "Prepare Run Row":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Create Evaluation Run",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Create Evaluation Run":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Prepare Proposed Rule Versions",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  },
+                        "Prepare Proposed Rule Versions":  {
+                                                               "main":  [
+                                                                            [
+                                                                                {
+                                                                                    "node":  "Create Proposed Rule Version",
+                                                                                    "type":  "main",
+                                                                                    "index":  0
+                                                                                }
+                                                                            ]
+                                                                        ]
+                                                           },
+                        "Trigger Evaluation Run":  {
+                                                       "main":  [
+                                                                    [
+                                                                        {
+                                                                            "node":  "Config",
+                                                                            "type":  "main",
+                                                                            "index":  0
+                                                                        }
+                                                                    ]
+                                                                ]
+                                                   }
+                    },
+    "active":  true,
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "binaryMode":  "separate",
+                     "availableInMCP":  true
+                 },
+    "versionId":  "538c5f6e-080a-49b1-ba15-f07cc926cdb5",
+    "meta":  {
+                 "instanceId":  "cd970faacb6c813ab1b8df8e2df61804e6515a5a8ae36ca8f9dd9fd7faeb98f2"
+             },
+    "nodeGroups":  [
+                       {
+                           "id":  "5587da6a-1786-44ea-94fe-fb33c52e66d4",
+                           "name":  "Retrieve bounded data",
+                           "nodeIds":  [
+                                           "5a8ab580-2046-4e6e-987e-8aab2e29b141",
+                                           "8e164ea4-e0c0-43a2-990d-564467777414",
+                                           "294ffd5a-2b2b-4a7b-9752-9b1897513562",
+                                           "4012acd8-dc7c-48c7-b36a-6cb62595e3c5",
+                                           "c1fe501e-3ebe-436b-85b3-b89b713f2fcb"
+                                       ],
+                           "description":  "Reads a bounded date range of assessments, expert and farmer feedback and rule versions from Supabase; any read failure fails the run."
+                       },
+                       {
+                           "id":  "cf6eb3bb-4cb3-489a-b73b-35feef5b042b",
+                           "name":  "Evaluate and check duplicates",
+                           "nodeIds":  [
+                                           "ac945b40-44dd-47a9-a361-1b89e7fa4436",
+                                           "c79ce381-cba4-4ab8-852b-1d2e99f799f8",
+                                           "c9a4007a-b0a5-49f9-bee6-4aa6fac5d97a"
+                                       ],
+                           "description":  "Runs quality checks, verified-outcome metrics and weakness detection, then skips the run if an identical one was already saved."
+                       },
+                       {
+                           "id":  "0c1da4f6-29af-40ea-92c6-7040bf837143",
+                           "name":  "Record evaluation run",
+                           "nodeIds":  [
+                                           "7e98c009-147b-4dca-b9dc-928daed3133c",
+                                           "05ed12f8-62a9-46fb-9b5f-30fb0aac953e"
+                                       ],
+                           "description":  "Saves metrics, sample sizes, versions, limitations and status as a new evaluation run row."
+                       },
+                       {
+                           "id":  "49dbe4f0-e0be-4b3e-a16e-bce26fff216f",
+                           "name":  "Propose rule changes",
+                           "nodeIds":  [
+                                           "36e6710c-3e6d-4ec0-a2ce-fd286e955831",
+                                           "473d6608-a91e-4457-bfab-a9a215d9cedc"
+                                       ],
+                           "description":  "Saves evidence-backed proposed rule versions flagged for expert review. Nothing is activated."
+                       }
+                   ],
+    "id":  "zVLsKAHmf06Kcdbn",
+    "tags":  [
+
+             ]
+}

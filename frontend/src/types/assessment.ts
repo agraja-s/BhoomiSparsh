@@ -161,6 +161,8 @@ export interface AssessmentResponse {
   advisory: AdvisoryInfo
   imageUrl?: string // local object URL or returned CDN URL for preview
   farmerReport?: FarmerFriendlyDiagnosis
+  rawAiResponse?: unknown
+  aiAgentText?: string
 }
 
 export interface AssessmentSubmissionPayload {

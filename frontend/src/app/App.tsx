@@ -8,6 +8,7 @@ import { AdvisoryCenterView } from '../features/advisories/AdvisoryCenterView'
 import { MyFieldsView } from '../features/fields/MyFieldsView'
 import { HistoryReportsView } from '../features/history/HistoryReportsView'
 import { ProfileSettingsView } from '../features/settings/ProfileSettingsView'
+import { EvaluationDashboardView } from '../features/evaluation/EvaluationDashboardView'
 import { FarmerAuthModal } from '../features/auth/FarmerAuthModal'
 import { assessmentService } from '../services/assessmentService'
 import { authService } from '../services/authService'
@@ -158,6 +159,7 @@ export type AppView =
   | 'my-fields'
   | 'history'
   | 'settings'
+  | 'evaluation'
 
 export const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en')
@@ -264,7 +266,8 @@ export const App: React.FC = () => {
             nav === 'advisories' ||
             nav === 'my-fields' ||
             nav === 'history' ||
-            nav === 'settings'
+            nav === 'settings' ||
+            nav === 'evaluation'
           ) {
             setCurrentView(nav as AppView)
           }
@@ -345,6 +348,15 @@ export const App: React.FC = () => {
           onBackToDashboard={() => setCurrentView('dashboard')}
           currentUser={currentUser}
           onOpenAuth={handleOpenAuth}
+        />
+      )}
+
+      {/* Screen 9: AI Evaluation & Controlled Learning Loop (n8n Workflow 2) */}
+      {currentView === 'evaluation' && (
+        <EvaluationDashboardView
+          language={language}
+          onBackToDashboard={() => setCurrentView('dashboard')}
+          onStartCropCheck={handleStartNewAssessment}
         />
       )}
     </Layout>

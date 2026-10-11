@@ -15,6 +15,7 @@ import {
   Sparkles,
   Leaf,
   LogOut,
+  Activity,
 } from 'lucide-react'
 import type { Language } from '../../utils/translations'
 import type { FarmerProfile } from '../../types/auth'
@@ -53,6 +54,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
     { id: 'my-fields', label: 'My Fields', icon: MapPin },
     { id: 'scan', label: 'Check My Crop', icon: Camera, highlight: true },
+    { id: 'evaluation', label: 'AI Learning Loop', icon: Activity },
     { id: 'weather-risk', label: 'Weather & Risk', icon: CloudSun },
     { id: 'advisories', label: 'Farmer Advisory', icon: ShieldAlert },
     { id: 'history', label: 'History & Reports', icon: History },

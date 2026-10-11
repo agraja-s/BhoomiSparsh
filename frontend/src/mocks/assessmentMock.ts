@@ -260,6 +260,23 @@ export class AssessmentMockAdapter {
           mr: 'हे दृश्य लक्षणांवर आधारित AI विश्लेषण आहे. प्रत्यक्ष शेतात जाऊन खात्री करा.',
         },
       },
+      rawAiResponse: {
+        cropIdentified: crop,
+        growthStage: stage,
+        diagnosis: {
+          diseaseName: primaryDisease,
+          scientificName,
+          confidence: 0.88,
+          severity,
+          whatFarmerSees: 'Water-soaked irregular lesions on leaf edges with pale halos.',
+        },
+        riskAssessment: {
+          overallRiskLevel: severity,
+          riskIndex: baseRisk,
+        },
+        mode: 'mock',
+      },
+      aiAgentText: `Crop Health Diagnosis:\n• Crop: ${crop} (${stage})\n• Detected Condition: ${primaryDisease} (${scientificName})\n• Risk Assessment: ${severity.toUpperCase()} severity under current micro-climate humidity levels.\n• Recommended Actions:\n1. Remove and bag discolored leaves immediately — do not leave in field.\n2. Cease overhead sprinkler watering; supply water directly to root base via drip.\n3. Inspect nearby plants within a 5-meter radius for early speckling.`,
     }
   }
 }

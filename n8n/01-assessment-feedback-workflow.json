@@ -1,0 +1,503 @@
+﻿{
+    "name":  "AgriSentry â€” Assessment Feedback and Outcomes",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "api/v1/assessment-feedback",
+                                         "authentication":  "none",
+                                         "responseMode":  "responseNode",
+                                         "options":  {
+                                                         "allowedOrigins":  "*"
+                                                     }
+                                     },
+                      "id":  "eb368ffc-fb7e-4ed9-8bcb-3e3450e5974f",
+                      "name":  "POST /api/v1/assessment-feedback",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       0,
+                                       0
+                                   ],
+                      "webhookId":  "00e17af7-5d54-42a0-bb0b-a592e3947752"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const crypto = require(\u0027crypto\u0027);\nconst item = $input.first();\nconst body = item.json.body;\nconst feedbackId = crypto.randomUUID();\nconst MAX_JSON_BYTES = 8192;\nconst MAX_NOTES = 2000;\nconst LABEL_SOURCES = [\u0027farmer_report\u0027, \u0027expert_verified\u0027, \u0027field_observed\u0027];\nconst OUTCOMES = [\u0027recovered\u0027, \u0027improving\u0027, \u0027no_change\u0027, \u0027worsening\u0027, \u0027spread_to_other_plants\u0027, \u0027crop_loss\u0027, \u0027unknown\u0027];\nconst UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\nfunction fail(status, code, message, details) {\n  const err = { code: code, message: message, requestId: feedbackId };\n  if (details \u0026\u0026 details.length) err.details = details;\n  return [{ json: { valid: false, httpStatus: status, response: { error: err } } }];\n}\nif (!body || typeof body !== \u0027object\u0027 || Array.isArray(body)) {\n  return fail(400, \u0027INVALID_REQUEST\u0027, \u0027A JSON object body is required.\u0027);\n}\nconst size = Buffer.byteLength(JSON.stringify(body), \u0027utf8\u0027);\nif (size \u003e MAX_JSON_BYTES) {\n  return fail(413, \u0027PAYLOAD_TOO_LARGE\u0027, \u0027The request body exceeds \u0027 + MAX_JSON_BYTES + \u0027 bytes.\u0027);\n}\nconst problems = [];\nfunction optStr(v, name, max) {\n  if (v === undefined || v === null || v === \u0027\u0027) return null;\n  if (typeof v !== \u0027string\u0027) { problems.push(name + \u0027 must be a string\u0027); return null; }\n  const t = v.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/g, \u0027\u0027).trim();\n  if (t.length \u003e max) { problems.push(name + \u0027 must be at most \u0027 + max + \u0027 characters\u0027); return null; }\n  return t === \u0027\u0027 ? null : t;\n}\nconst assessmentId = typeof body.assessmentId === \u0027string\u0027 ? body.assessmentId.trim() : \u0027\u0027;\nif (!assessmentId) problems.push(\u0027assessmentId is required\u0027);\nelse if (!UUID_RE.test(assessmentId)) problems.push(\u0027assessmentId must be a valid UUID\u0027);\n\nconst labelSource = typeof body.labelSource === \u0027string\u0027 ? body.labelSource.trim() : \u0027\u0027;\nif (LABEL_SOURCES.indexOf(labelSource) === -1) problems.push(\u0027labelSource must be one of: \u0027 + LABEL_SOURCES.join(\u0027, \u0027));\n\nlet diseaseObserved = body.diseaseObserved;\nif (diseaseObserved === true) diseaseObserved = \u0027true\u0027;\nelse if (diseaseObserved === false) diseaseObserved = \u0027false\u0027;\nelse if (diseaseObserved !== \u0027unknown\u0027) { problems.push(\u0027diseaseObserved must be true, false or \"unknown\"\u0027); diseaseObserved = null; }\n\nconst outcomeStatus = typeof body.outcomeStatus === \u0027string\u0027 ? body.outcomeStatus.trim() : \u0027\u0027;\nif (OUTCOMES.indexOf(outcomeStatus) === -1) problems.push(\u0027outcomeStatus must be one of: \u0027 + OUTCOMES.join(\u0027, \u0027));\n\nlet days = null;\nif (body.daysAfterAssessment !== undefined \u0026\u0026 body.daysAfterAssessment !== null) {\n  const d = body.daysAfterAssessment;\n  if (typeof d !== \u0027number\u0027 || !Number.isInteger(d) || d \u003c 0 || d \u003e 730) problems.push(\u0027daysAfterAssessment must be an integer between 0 and 730\u0027);\n  else days = d;\n}\nlet helpful = null;\nif (body.farmerFoundAdvisoryHelpful !== undefined \u0026\u0026 body.farmerFoundAdvisoryHelpful !== null) {\n  if (typeof body.farmerFoundAdvisoryHelpful !== \u0027boolean\u0027) problems.push(\u0027farmerFoundAdvisoryHelpful must be a boolean\u0027);\n  else helpful = body.farmerFoundAdvisoryHelpful;\n}\nconst observedCropType = optStr(body.observedCropType, \u0027observedCropType\u0027, 100);\nconst confirmedDisease = optStr(body.confirmedDisease, \u0027confirmedDisease\u0027, 200);\nconst notes = optStr(body.notes, \u0027notes\u0027, MAX_NOTES);\nif (problems.length) return fail(400, \u0027INVALID_REQUEST\u0027, \u0027The request is invalid.\u0027, problems);\n\nconst hashInput = JSON.stringify([assessmentId, labelSource, observedCropType, confirmedDisease, diseaseObserved, outcomeStatus, days, helpful, notes]);\nconst payloadHash = crypto.createHash(\u0027sha256\u0027).update(hashInput).digest(\u0027hex\u0027);\nreturn [{ json: {\n  valid: true, feedbackId: feedbackId, assessmentId: assessmentId.toLowerCase(), labelSource: labelSource,\n  observedCropType: observedCropType, confirmedDisease: confirmedDisease, diseaseObserved: diseaseObserved,\n  outcomeStatus: outcomeStatus, daysAfterAssessment: days, farmerFoundAdvisoryHelpful: helpful,\n  notes: notes, payloadHash: payloadHash, receivedAt: new Date().toISOString()\n} }];"
+                                     },
+                      "id":  "c88b3a68-7e63-401d-a43b-c71c021e091f",
+                      "name":  "Validate Request",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       272,
+                                       128
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "valid",
+                                                                                   "leftValue":  "={{ $json.valid }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "b797ce1b-4a52-4299-91ed-ccd4e859baa2",
+                      "name":  "Request Valid?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.3,
+                      "position":  [
+                                       496,
+                                       128
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "getAll",
+                                         "tableId":  "assessments",
+                                         "limit":  1,
+                                         "matchType":  "allFilters",
+                                         "filters":  {
+                                                         "conditions":  [
+                                                                            {
+                                                                                "keyName":  "id",
+                                                                                "condition":  "eq",
+                                                                                "keyValue":  "={{ $json.assessmentId }}"
+                                                                            }
+                                                                        ]
+                                                     }
+                                     },
+                      "id":  "470dd3a6-fa62-4e41-aa98-b90f540224a6",
+                      "name":  "Lookup Assessment",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       800,
+                                       192
+                                   ],
+                      "alwaysOutputData":  true,
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const v = $(\u0027Validate Request\u0027).first().json;\nconst a = $input.first().json || {};\nif (a.error || a.message \u0026\u0026 !a.id \u0026\u0026 a.code) {\n  return [{ json: { proceed: false, httpStatus: 500, response: { error: { code: \u0027DATABASE_ERROR\u0027, message: \u0027The assessment could not be looked up. Please try again.\u0027, requestId: v.feedbackId } } } }];\n}\nif (!a.id) {\n  return [{ json: { proceed: false, httpStatus: 404, response: { error: { code: \u0027ASSESSMENT_NOT_FOUND\u0027, message: \u0027No assessment exists with the supplied assessmentId.\u0027, requestId: v.feedbackId } } } }];\n}\nreturn [{ json: { proceed: true } }];"
+                                     },
+                      "id":  "76de80a9-3dbf-4d7b-a54e-1e4f3af00cd2",
+                      "name":  "Check Assessment Exists",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1024,
+                                       192
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "proceed",
+                                                                                   "leftValue":  "={{ $json.proceed }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "a7a0a834-481b-4b73-be53-c0d531b23efa",
+                      "name":  "Assessment Found?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.3,
+                      "position":  [
+                                       1248,
+                                       192
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "getAll",
+                                         "tableId":  "assessment_feedback",
+                                         "limit":  1,
+                                         "matchType":  "allFilters",
+                                         "filters":  {
+                                                         "conditions":  [
+                                                                            {
+                                                                                "keyName":  "assessment_id",
+                                                                                "condition":  "eq",
+                                                                                "keyValue":  "={{ $(\"Validate Request\").first().json.assessmentId }}"
+                                                                            },
+                                                                            {
+                                                                                "keyName":  "payload_hash",
+                                                                                "condition":  "eq",
+                                                                                "keyValue":  "={{ $(\"Validate Request\").first().json.payloadHash }}"
+                                                                            }
+                                                                        ]
+                                                     }
+                                     },
+                      "id":  "3fdff46e-a709-47cc-bd24-22dfe6607816",
+                      "name":  "Lookup Existing Feedback",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       1328,
+                                       272
+                                   ],
+                      "alwaysOutputData":  true,
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const v = $(\u0027Validate Request\u0027).first().json;\nconst a = $(\u0027Lookup Assessment\u0027).first().json;\nconst ex = $input.first().json || {};\n\nif (ex.error) {\n  return [{ json: { isNew: false, httpStatus: 500, response: { error: { code: \u0027DATABASE_ERROR\u0027, message: \u0027Feedback could not be checked for duplicates. Please try again.\u0027, requestId: v.feedbackId } } } }];\n}\nif (ex.id) {\n  return [{ json: { isNew: false, httpStatus: 200, response: { feedbackId: ex.id, assessmentId: v.assessmentId, status: \u0027duplicate\u0027, message: \u0027Identical feedback was already recorded for this assessment; nothing new was saved.\u0027, verificationStatus: ex.verification_status || null, evaluationEligible: ex.evaluation_eligible === true } } }];\n}\nfunction parse(x) {\n  if (typeof x === \u0027string\u0027) { try { return JSON.parse(x); } catch (e) { return null; } }\n  return x === undefined ? null : x;\n}\nconst diagnosis = parse(a.diagnosis);\nconst weather = parse(a.weather);\nconst risk = parse(a.risk_assessment);\nconst advisory = parse(a.advisory);\n\nconst VERIFICATION = { expert_verified: \u0027expert_verified\u0027, farmer_report: \u0027unverified_farmer_report\u0027, field_observed: \u0027unverified_field_observation\u0027 };\nconst blockers = [];\nif (v.labelSource !== \u0027expert_verified\u0027) blockers.push(\u0027Label is not expert-verified (farmer reports and field observations are not treated as ground truth).\u0027);\nif (v.diseaseObserved === \u0027unknown\u0027) blockers.push(\u0027Disease outcome is unknown.\u0027);\nif (v.diseaseObserved === \u0027true\u0027 \u0026\u0026 !v.confirmedDisease) blockers.push(\u0027confirmedDisease is required when disease was observed.\u0027);\nif (!(a.status === \u0027completed\u0027 || a.status === \u0027partial\u0027)) blockers.push(\u0027Original assessment did not complete (status: \u0027 + a.status + \u0027).\u0027);\nif (!diagnosis || diagnosis.status === \u0027failed\u0027) blockers.push(\u0027Original image-analysis result is missing or failed.\u0027);\nif (!weather || weather.status === \u0027unavailable\u0027 || !Array.isArray(weather.hourly) || weather.hourly.length === 0) blockers.push(\u0027Forecast available at assessment time is missing.\u0027);\nif (!risk || risk.status === undefined) blockers.push(\u0027Original risk assessment is missing.\u0027);\nelse if (risk.status !== \u0027calculated\u0027 \u0026\u0026 risk.status !== \u0027ok\u0027) blockers.push(\u0027No calculated risk timeline exists for the original assessment (risk status: \u0027 + risk.status + \u0027).\u0027);\nif (!a.model_name \u0026\u0026 !a.risk_rule_version) blockers.push(\u0027Model and rule versions are missing.\u0027);\nconst eligible = blockers.length === 0;\n\nconst evaluationCase = {\n  schemaVersion: 1,\n  assessmentId: v.assessmentId,\n  feedbackId: v.feedbackId,\n  capturedAt: v.receivedAt,\n  original: {\n    cropType: a.crop_type || null,\n    growthStage: a.growth_stage || null,\n    latitude: a.latitude === undefined ? null : a.latitude,\n    longitude: a.longitude === undefined ? null : a.longitude,\n    assessedAt: a.created_at || null,\n    prediction: { diagnosisStatus: diagnosis ? diagnosis.status : null, candidates: diagnosis ? (diagnosis.candidates || []) : [], riskStatus: risk ? risk.status : null, advisoryLevel: advisory ? advisory.level : null },\n    imageAnalysis: diagnosis,\n    weatherForecast: weather,\n    riskTimeline: risk ? { curve: risk.curve || [], missingInputs: risk.missingInputs || [] } : null,\n    versions: { diagnosisModel: a.model_name || null, riskModel: a.model_version || null, riskRule: a.risk_rule_version || null }\n  },\n  observation: {\n    labelSource: v.labelSource,\n    verificationStatus: VERIFICATION[v.labelSource],\n    observedCropType: v.observedCropType,\n    confirmedDisease: v.confirmedDisease,\n    diseaseObserved: v.diseaseObserved,\n    outcomeStatus: v.outcomeStatus,\n    daysAfterAssessment: v.daysAfterAssessment\n  },\n  eligibleForFormalEvaluation: eligible,\n  eligibilityBlockers: blockers\n};\n\nreturn [{ json: {\n  isNew: true,\n  id: v.feedbackId,\n  assessment_id: v.assessmentId,\n  label_source: v.labelSource,\n  verification_status: VERIFICATION[v.labelSource],\n  observed_crop_type: v.observedCropType,\n  confirmed_disease: v.confirmedDisease,\n  disease_observed: v.diseaseObserved,\n  outcome_status: v.outcomeStatus,\n  days_after_assessment: v.daysAfterAssessment,\n  farmer_found_advisory_helpful: v.farmerFoundAdvisoryHelpful,\n  notes: v.notes,\n  payload_hash: v.payloadHash,\n  evaluation_eligible: eligible,\n  evaluation_blockers: blockers,\n  evaluation_case: evaluationCase,\n  created_at: v.receivedAt\n} }];"
+                                     },
+                      "id":  "087131ac-e3db-4f88-a2e5-01fcf7e9201e",
+                      "name":  "Build Feedback Row and Evaluation Case",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1552,
+                                       272
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "isnew",
+                                                                                   "leftValue":  "={{ $json.isNew }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "4e860b47-4f47-4ac6-b908-9176c25d1016",
+                      "name":  "New Feedback?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.3,
+                      "position":  [
+                                       1776,
+                                       272
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "tableId":  "assessment_feedback",
+                                         "dataToSend":  "autoMapInputData",
+                                         "inputsToIgnore":  "isNew"
+                                     },
+                      "id":  "bd23b35b-ff67-47af-a693-d950a3a89782",
+                      "name":  "Create Feedback Row",
+                      "type":  "n8n-nodes-base.supabase",
+                      "typeVersion":  1,
+                      "position":  [
+                                       1856,
+                                       336
+                                   ],
+                      "credentials":  {
+                                          "supabaseApi":  {
+                                                              "id":  "0oFeBUUkwTPSz2IP",
+                                                              "name":  "Supabase account"
+                                                          }
+                                      },
+                      "onError":  "continueErrorOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const v = $(\u0027Validate Request\u0027).first().json;\nconst r = $(\u0027Build Feedback Row and Evaluation Case\u0027).first().json;\nconst out = $input.first().json || {};\nif (out.error || !out.id) {\n  return [{ json: { httpStatus: 500, response: { error: { code: \u0027PERSISTENCE_FAILED\u0027, message: \u0027The feedback could not be saved. Please try again.\u0027, requestId: v.feedbackId } } } }];\n}\nreturn [{ json: { httpStatus: 201, response: {\n  feedbackId: out.id,\n  assessmentId: out.assessment_id,\n  status: \u0027saved\u0027,\n  labelSource: out.label_source,\n  verificationStatus: out.verification_status,\n  evaluationEligible: r.evaluation_eligible === true,\n  evaluationBlockers: r.evaluation_blockers\n} } }];"
+                                     },
+                      "id":  "7c0cc183-60df-4b96-956f-356b1c99f27b",
+                      "name":  "Format Save Result",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       2080,
+                                       336
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ $json.response }}",
+                                         "options":  {
+                                                         "responseCode":  "={{ $json.httpStatus }}"
+                                                     }
+                                     },
+                      "id":  "9382c756-f355-4351-96f8-0c378e631d3d",
+                      "name":  "Respond",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.5,
+                      "position":  [
+                                       2336,
+                                       0
+                                   ]
+                  }
+              ],
+    "pinData":  {
+
+                },
+    "connections":  {
+                        "POST /api/v1/assessment-feedback":  {
+                                                                 "main":  [
+                                                                              [
+                                                                                  {
+                                                                                      "node":  "Validate Request",
+                                                                                      "type":  "main",
+                                                                                      "index":  0
+                                                                                  }
+                                                                              ]
+                                                                          ]
+                                                             },
+                        "Validate Request":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "Request Valid?",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             },
+                        "Request Valid?":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Lookup Assessment",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ],
+                                                            [
+                                                                {
+                                                                    "node":  "Respond",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Lookup Assessment":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Check Assessment Exists",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Check Assessment Exists":  {
+                                                        "main":  [
+                                                                     [
+                                                                         {
+                                                                             "node":  "Assessment Found?",
+                                                                             "type":  "main",
+                                                                             "index":  0
+                                                                         }
+                                                                     ]
+                                                                 ]
+                                                    },
+                        "Assessment Found?":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Lookup Existing Feedback",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ],
+                                                               [
+                                                                   {
+                                                                       "node":  "Respond",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Lookup Existing Feedback":  {
+                                                         "main":  [
+                                                                      [
+                                                                          {
+                                                                              "node":  "Build Feedback Row and Evaluation Case",
+                                                                              "type":  "main",
+                                                                              "index":  0
+                                                                          }
+                                                                      ]
+                                                                  ]
+                                                     },
+                        "Build Feedback Row and Evaluation Case":  {
+                                                                       "main":  [
+                                                                                    [
+                                                                                        {
+                                                                                            "node":  "New Feedback?",
+                                                                                            "type":  "main",
+                                                                                            "index":  0
+                                                                                        }
+                                                                                    ]
+                                                                                ]
+                                                                   },
+                        "New Feedback?":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Create Feedback Row",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ],
+                                                           [
+                                                               {
+                                                                   "node":  "Respond",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Create Feedback Row":  {
+                                                    "main":  [
+                                                                 [
+                                                                     {
+                                                                         "node":  "Format Save Result",
+                                                                         "type":  "main",
+                                                                         "index":  0
+                                                                     }
+                                                                 ],
+                                                                 [
+                                                                     {
+                                                                         "node":  "Format Save Result",
+                                                                         "type":  "main",
+                                                                         "index":  0
+                                                                     }
+                                                                 ]
+                                                             ]
+                                                },
+                        "Format Save Result":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Respond",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               }
+                    },
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "binaryMode":  "separate",
+                     "availableInMCP":  true
+                 },
+    "versionId":  "9ec06e55-cb72-4304-986b-28631fd28fbc",
+    "meta":  {
+                 "instanceId":  "cd970faacb6c813ab1b8df8e2df61804e6515a5a8ae36ca8f9dd9fd7faeb98f2"
+             },
+    "nodeGroups":  [
+                       {
+                           "id":  "d36427af-72e1-4f09-b924-c6fce7d54695",
+                           "name":  "Validate request",
+                           "nodeIds":  [
+                                           "c88b3a68-7e63-401d-a43b-c71c021e091f",
+                                           "b797ce1b-4a52-4299-91ed-ccd4e859baa2"
+                                       ],
+                           "description":  "Checks the JSON body, ID format, enums and size limits; bad requests get a 400/413 reply"
+                       },
+                       {
+                           "id":  "b7a7e1a2-7e84-4172-94e4-031090b4fe4a",
+                           "name":  "Confirm assessment exists",
+                           "nodeIds":  [
+                                           "470dd3a6-fa62-4e41-aa98-b90f540224a6",
+                                           "76de80a9-3dbf-4d7b-a54e-1e4f3af00cd2",
+                                           "a7a0a834-481b-4b73-be53-c0d531b23efa"
+                                       ],
+                           "description":  "Looks up the referenced assessment in Supabase; unknown IDs get 404, lookup failures 500"
+                       },
+                       {
+                           "id":  "b5845b7c-abb4-4d1c-a146-68380586ee65",
+                           "name":  "Build evaluation case",
+                           "nodeIds":  [
+                                           "3fdff46e-a709-47cc-bd24-22dfe6607816",
+                                           "087131ac-e3db-4f88-a2e5-01fcf7e9201e",
+                                           "4e860b47-4f47-4ac6-b908-9176c25d1016"
+                                       ],
+                           "description":  "Skips repeats, then snapshots prediction, weather, risk and versions with the new observation"
+                       },
+                       {
+                           "id":  "217a30ba-5f94-4530-8060-5b2b841db8b4",
+                           "name":  "Save feedback",
+                           "nodeIds":  [
+                                           "bd23b35b-ff67-47af-a693-d950a3a89782",
+                                           "7c0cc183-60df-4b96-956f-356b1c99f27b"
+                                       ],
+                           "description":  "Inserts a separate feedback row; a failed write returns 500 instead of success"
+                       }
+                   ],
+    "id":  "gFnP9ExVdqjxeF74",
+    "tags":  [
+
+             ]
+}

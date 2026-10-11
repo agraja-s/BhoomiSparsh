@@ -24,12 +24,16 @@ import {
   ShieldAlert,
   Languages,
   MessageSquare,
+  Activity,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import type { Language } from '../../utils/translations'
 import type {
   AssessmentResponse,
+  AssessmentFeedbackResponse,
   ImmediateActionStep,
   UrgencyInfo,
   MultilingualText,
@@ -114,6 +118,9 @@ export const CheckMyCropView: React.FC<CheckMyCropViewProps> = ({
   const [analysisError, setAnalysisError] = useState<string | null>(null)
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false)
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false)
+  const [submittedFeedback, setSubmittedFeedback] = useState<AssessmentFeedbackResponse | null>(null)
+  const [showRawPayload, setShowRawPayload] = useState(false)
+  const [copiedPayload, setCopiedPayload] = useState(false)
 
   // Sync initial language changes from parent layout
   useEffect(() => {
@@ -707,6 +714,95 @@ export const CheckMyCropView: React.FC<CheckMyCropViewProps> = ({
                 </Badge>
               </div>
 
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* LIVE n8n WORKFLOW AI AGENT OUTPUT SECTION */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-[#F5FAF3] to-[#E9F1E6] border-2 border-[#287A4B]/40 shadow-xs space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#123D2D] text-emerald-300 flex items-center justify-center shadow-xs">
+                      <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-sm text-[#123D2D]">
+                          Live n8n AI Agent Output
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#287A4B] text-white shadow-2xs">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                          </span>
+                          Workflow Live Stream
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-[#66756A] font-medium block">
+                        Webhook response received from n8n workflow engine
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Toggle raw JSON inspector */}
+                  <button
+                    type="button"
+                    onClick={() => setShowRawPayload(!showRawPayload)}
+                    className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-white hover:bg-[#F8F7EF] border border-[#287A4B]/30 text-[#123D2D] transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-[#287A4B]" />
+                    <span>{showRawPayload ? 'Hide Raw JSON' : 'Inspect Raw Payload'}</span>
+                  </button>
+                </div>
+
+                {/* Formatted Text / Markdown Output from n8n AI Agent */}
+                {rawResponse?.aiAgentText ? (
+                  <div className="p-3.5 rounded-xl bg-white border border-[#287A4B]/20 text-[#123D2D] text-xs leading-relaxed font-medium whitespace-pre-wrap shadow-2xs">
+                    {rawResponse.aiAgentText}
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-white border border-[#287A4B]/20 text-[#123D2D] text-xs leading-relaxed shadow-2xs">
+                    <span className="font-bold text-[#287A4B]">Identified Condition: </span>
+                    <span>{diagnosisResult.diseaseName} ({diagnosisResult.cropType})</span>
+                    <p className="mt-1 text-[#66756A]">
+                      {diagnosisResult.whatFarmerSees}
+                    </p>
+                  </div>
+                )}
+
+                {/* Expandable Raw Payload Viewer */}
+                {showRawPayload && (
+                  <div className="space-y-2 pt-1 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between text-[11px] text-[#66756A] font-mono">
+                      <span>Raw Webhook Response Payload:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const str = JSON.stringify(rawResponse?.rawAiResponse || rawResponse, null, 2)
+                          navigator.clipboard?.writeText(str)
+                          setCopiedPayload(true)
+                          setTimeout(() => setCopiedPayload(false), 2000)
+                        }}
+                        className="text-[#287A4B] hover:text-[#123D2D] font-bold cursor-pointer flex items-center gap-1"
+                      >
+                        {copiedPayload ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy JSON</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <pre className="p-3.5 rounded-xl bg-[#123D2D] text-emerald-300 font-mono text-[11px] overflow-x-auto max-h-60 leading-normal border border-emerald-700/40 select-all">
+                      {JSON.stringify(rawResponse?.rawAiResponse || rawResponse, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
               {/* Identified Crop & Growth Stage Banner */}
               <div className="p-3.5 rounded-2xl bg-[#E9F1E6]/70 border border-[#287A4B]/20 flex items-center justify-between">
                 <div>
@@ -891,13 +987,43 @@ export const CheckMyCropView: React.FC<CheckMyCropViewProps> = ({
 
               {/* Actions */}
               <div className="space-y-2 pt-2 border-t border-[#E0E6DC]">
-                {/* n8n Feedback Trigger */}
+                {/* Workflow 1 Output Receipt (if submitted) */}
+                {submittedFeedback && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-1.5 text-left text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold flex items-center gap-1.5 text-emerald-800">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        Workflow 1: Outcome Confirmed
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-200 text-emerald-900 uppercase">
+                        {submittedFeedback.verificationStatus}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800">
+                      {submittedFeedback.message}
+                    </p>
+                    <div className="text-[10px] text-emerald-700 font-mono">
+                      Feedback ID: {submittedFeedback.feedbackId}
+                    </div>
+                  </div>
+                )}
+
+                {/* n8n Feedback Trigger (Workflow 1) */}
                 <Button
                   onClick={() => setIsFeedbackModalOpen(true)}
                   className="w-full bg-[#123D2D] hover:bg-[#287A4B] text-white font-extrabold text-xs py-3 rounded-xl shadow-xs cursor-pointer"
                   leftIcon={<MessageSquare className="w-4 h-4 text-[#6BA66B]" />}
                 >
-                  Record Field Outcome & Feedback (n8n Loop)
+                  {submittedFeedback ? 'Update Field Outcome & Feedback' : 'Record Field Outcome & Feedback (Workflow 1)'}
+                </Button>
+
+                {/* n8n Evaluation Trigger (Workflow 2) */}
+                <Button
+                  onClick={() => setIsEvaluationModalOpen(true)}
+                  className="w-full bg-[#1F4E3B] hover:bg-[#287A4B] text-white font-extrabold text-xs py-3 rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                  leftIcon={<Activity className="w-4 h-4 text-emerald-300" />}
+                >
+                  View AI Evaluation & Controlled Learning Loop (Workflow 2)
                 </Button>
 
                 <Button
@@ -976,6 +1102,7 @@ export const CheckMyCropView: React.FC<CheckMyCropViewProps> = ({
           cropType={diagnosisResult?.cropType || 'Tomato'}
           initialDisease={diagnosisResult?.diseaseName}
           language={activeLang}
+          onSuccess={(res) => setSubmittedFeedback(res)}
         />
       )}
 
