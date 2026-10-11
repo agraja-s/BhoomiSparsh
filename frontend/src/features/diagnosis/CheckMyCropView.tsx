@@ -27,6 +27,7 @@ import {
   Activity,
   Copy,
   Check,
+  Eye,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
@@ -83,6 +84,154 @@ function getLocalized(
   if (!text) return fallback
   if (typeof text === 'string') return text
   return text[lang] || text.en || fallback
+}
+
+interface ParsedAiOutput {
+  crop?: string
+  disease?: string
+  scientificName?: string
+  confidence?: number | string
+  severity?: string
+  observations: string[]
+  actions: string[]
+  advisory?: string
+  cleanText?: string
+}
+
+function parseAiAgentOutput(text: string | undefined, raw: unknown): ParsedAiOutput {
+  const result: ParsedAiOutput = {
+    observations: [],
+    actions: [],
+  }
+
+  // 1. Try to unwrap if raw is an object
+  let dataObj: Record<string, unknown> | null =
+    raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
+
+  // 2. If text starts with '{' or has markdown json, parse it
+  if (text) {
+    const trimmed = text.trim()
+    try {
+      const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+      const toParse = match
+        ? match[1].trim()
+        : trimmed.startsWith('{') && trimmed.endsWith('}')
+          ? trimmed
+          : null
+      if (toParse) {
+        const parsed = JSON.parse(toParse)
+        if (parsed && typeof parsed === 'object') {
+          dataObj = { ...(dataObj || {}), ...parsed }
+        }
+      }
+    } catch {
+      // not valid json, will process as human text below
+    }
+  }
+
+  if (dataObj) {
+    // Extract crop
+    const c = dataObj.crop || dataObj.cropIdentified || dataObj.cropType || dataObj.crop_type
+    if (c) {
+      result.crop = typeof c === 'object' && c !== null ? (c as { en?: string }).en || String(c) : String(c)
+    }
+
+    // Extract disease
+    const d = dataObj.disease || dataObj.diseaseName || dataObj.condition || dataObj.diagnosis
+    if (d) {
+      if (typeof d === 'object' && d !== null) {
+        const dObj = d as Record<string, unknown>
+        const dn = dObj.diseaseName || dObj.name || dObj.condition
+        result.disease =
+          typeof dn === 'object' && dn !== null
+            ? (dn as { en?: string }).en || String(dn)
+            : String(dn || '')
+        if (dObj.scientificName) {
+          result.scientificName = String(dObj.scientificName)
+        }
+      } else {
+        result.disease = String(d)
+      }
+    }
+
+    if (dataObj.scientificName && !result.scientificName) {
+      result.scientificName = String(dataObj.scientificName)
+    }
+    if (dataObj.severity) result.severity = String(dataObj.severity)
+    if (dataObj.confidence) result.confidence = dataObj.confidence as number | string
+
+    // Extract symptoms / observations
+    const obs = dataObj.symptoms || dataObj.whatFarmerSees || dataObj.observations || dataObj.imageEvidence
+    if (Array.isArray(obs)) {
+      result.observations = obs.map((o) =>
+        typeof o === 'object' && o !== null ? (o as { en?: string }).en || String(o) : String(o)
+      )
+    } else if (typeof obs === 'string' && obs.trim().length > 0) {
+      result.observations = [obs]
+    }
+
+    // Extract actions / remedies
+    const acts =
+      dataObj.immediateActions ||
+      dataObj.actions ||
+      dataObj.recommendations ||
+      dataObj.treatment ||
+      dataObj.remedies
+    if (Array.isArray(acts)) {
+      result.actions = acts.map((a) =>
+        typeof a === 'object' && a !== null ? (a as { en?: string }).en || String(a) : String(a)
+      )
+    } else if (typeof acts === 'string' && acts.trim().length > 0) {
+      result.actions = acts
+        .split('\n')
+        .map((l) => l.replace(/^(?:\d+\.|\*|-|•)\s+/, '').trim())
+        .filter((l) => l.length > 0)
+    }
+
+    if (dataObj.advisory || dataObj.notes || dataObj.uncertaintyNote) {
+      const adv = dataObj.advisory || dataObj.notes || dataObj.uncertaintyNote
+      result.advisory =
+        typeof adv === 'object' && adv !== null ? (adv as { en?: string }).en || String(adv) : String(adv)
+    }
+  }
+
+  // 3. If text is natural language / markdown (not JSON)
+  if (text && (!result.disease || result.actions.length === 0)) {
+    const cleanLines = text
+      .replace(/```(?:json)?[\s\S]*?```/gi, '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.startsWith('{') && !l.startsWith('}') && !l.startsWith('"'))
+
+    const parsedLines: string[] = []
+    cleanLines.forEach((line) => {
+      if (/^(?:\d+\.|\*|-|•)\s+/.test(line)) {
+        const item = line.replace(/^(?:\d+\.|\*|-|•)\s+/, '').replace(/\*\*/g, '').trim()
+        if (item && !result.actions.includes(item)) result.actions.push(item)
+      } else if (/^(?:Crop|Disease|Diagnosis|Condition|Severity|Symptoms|Observations)[:*]/i.test(line)) {
+        const parts = line.split(/[:*]+/)
+        const key = parts[0]?.toLowerCase().trim() || ''
+        const val = parts.slice(1).join(':').replace(/\*\*/g, '').trim()
+        if (key.includes('crop') && !result.crop) result.crop = val
+        else if (
+          (key.includes('disease') || key.includes('diagnosis') || key.includes('condition')) &&
+          !result.disease
+        )
+          result.disease = val
+        else if (key.includes('severity') && !result.severity) result.severity = val
+        else if ((key.includes('symptom') || key.includes('observation')) && val)
+          result.observations.push(val)
+      } else {
+        parsedLines.push(line.replace(/\*\*/g, '').trim())
+      }
+    })
+
+    if (parsedLines.length > 0 && !result.advisory) {
+      result.cleanText = parsedLines.join('\n\n')
+    }
+  }
+
+  return result
 }
 
 export const CheckMyCropView: React.FC<CheckMyCropViewProps> = ({
@@ -715,93 +864,176 @@ export const CheckMyCropView: React.FC<CheckMyCropViewProps> = ({
               </div>
 
               {/* ───────────────────────────────────────────────────────────── */}
-              {/* LIVE n8n WORKFLOW AI AGENT OUTPUT SECTION */}
+              {/* LIVE n8n WORKFLOW AI AGENT OUTPUT (HUMAN-FRIENDLY CARDS) */}
               {/* ───────────────────────────────────────────────────────────── */}
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-[#F5FAF3] to-[#E9F1E6] border-2 border-[#287A4B]/40 shadow-xs space-y-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-[#123D2D] text-emerald-300 flex items-center justify-center shadow-xs">
-                      <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-sm text-[#123D2D]">
-                          Live n8n AI Agent Output
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#287A4B] text-white shadow-2xs">
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+              {(() => {
+                const parsedAi = parseAiAgentOutput(rawResponse?.aiAgentText, rawResponse?.rawAiResponse)
+                const displayCrop = parsedAi.crop || diagnosisResult.cropTypeLocal
+                const displayDisease = parsedAi.disease || diagnosisResult.diseaseNameLocal
+                const displayScientific = parsedAi.scientificName || diagnosisResult.scientificName
+                const displaySeverity = (parsedAi.severity || diagnosisResult.severity || 'moderate').toLowerCase()
+                const displayObservations =
+                  parsedAi.observations.length > 0
+                    ? parsedAi.observations
+                    : diagnosisResult.visibleSymptoms
+                const displayActions =
+                  parsedAi.actions.length > 0
+                    ? parsedAi.actions
+                    : diagnosisResult.immediateActions.map((a) => getLocalized(a, activeLang))
+
+                return (
+                  <div className="p-5 rounded-3xl bg-gradient-to-br from-[#F5FAF3] via-white to-[#E9F1E6] border-2 border-[#287A4B]/40 shadow-sm space-y-4">
+                    {/* Header with Live Signal */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap pb-3 border-b border-[#287A4B]/20">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-2xl bg-[#123D2D] text-emerald-300 flex items-center justify-center shadow-xs">
+                          <Sparkles className="w-5 h-5 text-emerald-300 animate-pulse" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h2 className="font-extrabold text-sm text-[#123D2D]">
+                              Live AI Agent Pathologist Diagnosis
+                            </h2>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#287A4B] text-white shadow-2xs">
+                              <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                              </span>
+                              n8n Live Workflow
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-[#66756A] font-medium block">
+                            Direct synthesis from Agricultural Pathologist AI engine
                           </span>
-                          Workflow Live Stream
-                        </span>
+                        </div>
                       </div>
-                      <span className="text-[10px] text-[#66756A] font-medium block">
-                        Webhook response received from n8n workflow engine
-                      </span>
+
+                      <Badge
+                        variant={
+                          displaySeverity === 'critical' || displaySeverity === 'high'
+                            ? 'destructive'
+                            : 'warning'
+                        }
+                        dot
+                        className="font-bold text-[11px] uppercase tracking-wider"
+                      >
+                        {displaySeverity} Risk
+                      </Badge>
                     </div>
-                  </div>
 
-                  {/* Toggle raw JSON inspector */}
-                  <button
-                    type="button"
-                    onClick={() => setShowRawPayload(!showRawPayload)}
-                    className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-white hover:bg-[#F8F7EF] border border-[#287A4B]/30 text-[#123D2D] transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-[#287A4B]" />
-                    <span>{showRawPayload ? 'Hide Raw JSON' : 'Inspect Raw Payload'}</span>
-                  </button>
-                </div>
+                    {/* Prominent Diagnosis Card */}
+                    <div className="p-4 rounded-2xl bg-white border border-[#287A4B]/20 shadow-2xs space-y-1.5">
+                      <div className="flex items-center gap-2 text-xs text-[#287A4B] font-bold">
+                        <Leaf className="w-4 h-4" />
+                        <span>Identified Crop: <strong>{displayCrop}</strong></span>
+                      </div>
+                      <h3 className="text-xl font-extrabold text-[#123D2D] tracking-tight">
+                        {displayDisease}
+                      </h3>
+                      {displayScientific && (
+                        <p className="text-xs text-[#287A4B] italic font-medium">
+                          Scientific classification: {displayScientific}
+                        </p>
+                      )}
+                    </div>
 
-                {/* Formatted Text / Markdown Output from n8n AI Agent */}
-                {rawResponse?.aiAgentText ? (
-                  <div className="p-3.5 rounded-xl bg-white border border-[#287A4B]/20 text-[#123D2D] text-xs leading-relaxed font-medium whitespace-pre-wrap shadow-2xs">
-                    {rawResponse.aiAgentText}
-                  </div>
-                ) : (
-                  <div className="p-3.5 rounded-xl bg-white border border-[#287A4B]/20 text-[#123D2D] text-xs leading-relaxed shadow-2xs">
-                    <span className="font-bold text-[#287A4B]">Identified Condition: </span>
-                    <span>{diagnosisResult.diseaseName} ({diagnosisResult.cropType})</span>
-                    <p className="mt-1 text-[#66756A]">
-                      {diagnosisResult.whatFarmerSees}
-                    </p>
-                  </div>
-                )}
+                    {/* Observed Symptoms */}
+                    {displayObservations.length > 0 && (
+                      <div className="p-4 rounded-2xl bg-white border border-[#287A4B]/20 shadow-2xs space-y-2">
+                        <span className="font-extrabold text-xs text-[#123D2D] flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-[#287A4B]" />
+                          Visual Symptoms & Foliage Observations
+                        </span>
+                        <div className="space-y-1.5 pt-1">
+                          {displayObservations.map((obs, idx) => (
+                            <div key={idx} className="flex items-start gap-2.5 text-xs text-[#1F3027] leading-relaxed">
+                              <span className="w-2 h-2 rounded-full bg-[#287A4B] shrink-0 mt-1.5" />
+                              <span>{obs}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                {/* Expandable Raw Payload Viewer */}
-                {showRawPayload && (
-                  <div className="space-y-2 pt-1 animate-in fade-in duration-200">
-                    <div className="flex items-center justify-between text-[11px] text-[#66756A] font-mono">
-                      <span>Raw Webhook Response Payload:</span>
+                    {/* Step-by-Step Treatment & Remedies */}
+                    {displayActions.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <span className="font-extrabold text-xs text-[#123D2D] flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-[#287A4B]" />
+                          Recommended Field Action Plan
+                        </span>
+                        <div className="grid gap-2">
+                          {displayActions.map((action, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3.5 rounded-xl bg-white border border-[#E0E6DC] flex items-start gap-3 shadow-2xs"
+                            >
+                              <span className="w-6 h-6 rounded-lg bg-[#287A4B] text-white text-xs font-extrabold flex items-center justify-center shrink-0 shadow-2xs">
+                                {idx + 1}
+                              </span>
+                              <div className="text-xs text-[#1F3027] font-medium leading-relaxed pt-0.5">
+                                {action}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Optional Clean Advisory Guidance */}
+                    {parsedAi.cleanText && (
+                      <div className="p-3.5 rounded-xl bg-white/80 border border-[#287A4B]/15 text-xs text-[#66756A] leading-relaxed">
+                        {parsedAi.cleanText}
+                      </div>
+                    )}
+
+                    {/* Developer/Debug Inspector (Collapsed and unobtrusive at bottom) */}
+                    <div className="pt-2 border-t border-[#287A4B]/10">
                       <button
                         type="button"
-                        onClick={() => {
-                          const str = JSON.stringify(rawResponse?.rawAiResponse || rawResponse, null, 2)
-                          navigator.clipboard?.writeText(str)
-                          setCopiedPayload(true)
-                          setTimeout(() => setCopiedPayload(false), 2000)
-                        }}
-                        className="text-[#287A4B] hover:text-[#123D2D] font-bold cursor-pointer flex items-center gap-1"
+                        onClick={() => setShowRawPayload(!showRawPayload)}
+                        className="text-[11px] font-semibold text-[#66756A] hover:text-[#123D2D] flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
-                        {copiedPayload ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Copied!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Copy JSON</span>
-                          </>
-                        )}
+                        <Layers className="w-3.5 h-3.5 text-[#287A4B]" />
+                        <span>{showRawPayload ? 'Hide Technical Diagnostics (JSON)' : 'View Technical Diagnostics (JSON)'}</span>
                       </button>
+
+                      {showRawPayload && (
+                        <div className="mt-2 space-y-1.5 animate-in fade-in duration-200">
+                          <div className="flex items-center justify-between text-[10px] text-[#66756A] font-mono">
+                            <span>Raw n8n Payload:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const str = JSON.stringify(rawResponse?.rawAiResponse || rawResponse, null, 2)
+                                navigator.clipboard?.writeText(str)
+                                setCopiedPayload(true)
+                                setTimeout(() => setCopiedPayload(false), 2000)
+                              }}
+                              className="text-[#287A4B] hover:text-[#123D2D] font-bold cursor-pointer flex items-center gap-1"
+                            >
+                              {copiedPayload ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <span>Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy JSON</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <pre className="p-3 rounded-xl bg-[#123D2D] text-emerald-300 font-mono text-[10px] overflow-x-auto max-h-48 leading-normal select-all">
+                            {JSON.stringify(rawResponse?.rawAiResponse || rawResponse, null, 2)}
+                          </pre>
+                        </div>
+                      )}
                     </div>
-                    <pre className="p-3.5 rounded-xl bg-[#123D2D] text-emerald-300 font-mono text-[11px] overflow-x-auto max-h-60 leading-normal border border-emerald-700/40 select-all">
-                      {JSON.stringify(rawResponse?.rawAiResponse || rawResponse, null, 2)}
-                    </pre>
                   </div>
-                )}
-              </div>
+                )
+              })()}
 
               {/* Identified Crop & Growth Stage Banner */}
               <div className="p-3.5 rounded-2xl bg-[#E9F1E6]/70 border border-[#287A4B]/20 flex items-center justify-between">
