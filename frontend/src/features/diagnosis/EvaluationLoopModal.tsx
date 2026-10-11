@@ -192,10 +192,30 @@ export const EvaluationLoopModal: React.FC<EvaluationLoopModalProps> = ({
 
           {/* Section 1: Benchmark Metrics */}
           <div className="space-y-3">
-            <h4 className="font-bold text-[#123D2D] text-sm flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[#287A4B]" />
-              <span>{t.tabOverview}</span>
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-[#123D2D] text-sm flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#287A4B]" />
+                <span>{t.tabOverview}</span>
+              </h4>
+              <button
+                type="button"
+                onClick={handleRunEvaluation}
+                disabled={isEvaluating}
+                className="px-3 py-1.5 rounded-xl bg-[#123D2D] hover:bg-[#287A4B] text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {isEvaluating ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>{t.runningBenchmark}</span>
+                  </>
+                ) : (
+                  <>
+                    <Activity className="w-3.5 h-3.5" />
+                    <span>{t.runBenchmark}</span>
+                  </>
+                )}
+              </button>
+            </div>
 
             {displayRuns.map((run, idx) => (
               <div

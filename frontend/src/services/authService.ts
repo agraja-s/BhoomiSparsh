@@ -287,27 +287,34 @@ export class AuthService {
 
     if (supabase) {
       try {
-        const { data, error } = await supabase.auth.signUp({
+        const signUpPromise = supabase.auth.signUp({
           email,
           password,
           options: {
             data: metadata,
           },
         })
+        const timeoutPromise = new Promise<{ data: { user: null }; error: Error }>((_, reject) =>
+          setTimeout(() => reject(new Error('Supabase signUp timeout')), 3500)
+        )
 
-        if (!error && data.user) {
-          createdUser = this.userToFarmerProfile(data.user)
-          // Attempt to write into public.profiles if table exists
-          try {
-            await supabase.from('profiles').insert([
-              {
-                id: data.user.id,
-                ...metadata,
-              },
-            ])
-          } catch {
-            // Table may not exist yet
-          }
+        const { data, error } = await Promise.race([signUpPromise, timeoutPromise])
+
+        if (!error && data?.user) {
+          const authedUser = data.user
+          createdUser = this.userToFarmerProfile(authedUser)
+          void (async () => {
+            try {
+              await supabase.from('profiles').insert([
+                {
+                  id: authedUser.id,
+                  ...metadata,
+                },
+              ])
+            } catch {
+              // Ignore
+            }
+          })()
         } else if (error) {
           console.warn('Supabase cloud signup notice (falling back gracefully):', error.message)
         }

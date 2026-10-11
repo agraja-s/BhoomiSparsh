@@ -91,9 +91,6 @@ export class FeedbackService {
             days_after_assessment: payload.daysAfterAssessment ?? 7,
             farmer_found_advisory_helpful: payload.farmerFoundAdvisoryHelpful ?? true,
             notes: payload.notes || null,
-            payload_hash: `client-${Date.now().toString(36)}`,
-            evaluation_eligible: payload.labelSource === 'expert_verified',
-            evaluation_blockers: payload.labelSource !== 'expert_verified' ? ['Not expert verified'] : [],
             created_at: nowIso,
           },
         ])

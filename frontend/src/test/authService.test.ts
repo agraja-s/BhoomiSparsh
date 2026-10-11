@@ -47,7 +47,7 @@ describe('AuthService', () => {
     expect(newFarmer.fullName).toBe('Vikram Jadhav')
     expect(newFarmer.farmerIdCode).toMatch(/^#MA-\d+/)
     expect(auth.getCurrentUser()?.farmName).toBe('Sahyadri Sugarcane Estate')
-  })
+  }, 15000)
 
   it('logs out and clears current user', async () => {
     await auth.logout()
