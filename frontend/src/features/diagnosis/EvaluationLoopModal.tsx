@@ -29,21 +29,40 @@ export const EvaluationLoopModal: React.FC<EvaluationLoopModalProps> = ({
   const [runs, setRuns] = useState<EvaluationRunSummary[]>([])
   const [proposals, setProposals] = useState<Record<string, unknown>[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isEvaluating, setIsEvaluating] = useState(false)
+
+  const loadData = async () => {
+    setIsLoading(true)
+    try {
+      const [runData, proposalData] = await Promise.all([
+        feedbackService.getEvaluationRuns(),
+        feedbackService.getProposedRuleVersions(),
+      ])
+      setRuns(runData)
+      setProposals(proposalData)
+    } catch {
+      // Fallback demo metrics if database tables are fresh
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!isOpen) return
-
-    setIsLoading(true)
-    Promise.all([feedbackService.getEvaluationRuns(), feedbackService.getProposedRuleVersions()])
-      .then(([runData, proposalData]) => {
-        setRuns(runData)
-        setProposals(proposalData)
-      })
-      .catch(() => {
-        // Fallback demo metrics if database tables are fresh
-      })
-      .finally(() => setIsLoading(false))
+    loadData()
   }, [isOpen])
+
+  const handleRunEvaluation = async () => {
+    setIsEvaluating(true)
+    try {
+      await feedbackService.triggerEvaluationBenchmark()
+      await loadData()
+    } catch (e) {
+      console.error('Failed to trigger benchmark evaluation:', e)
+    } finally {
+      setIsEvaluating(false)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -59,6 +78,8 @@ export const EvaluationLoopModal: React.FC<EvaluationLoopModalProps> = ({
       ruleTitle: 'Proposed Rule Version',
       ruleEvidence: 'Empirical Evidence & Justification',
       ruleNotice: '⚠️ High Reliability Directive: In compliance with project safety rules, models never self-retrain live rules automatically. All proposed rules require agronomist sign-off.',
+      runBenchmark: 'Trigger Benchmark Run',
+      runningBenchmark: 'Analyzing Models...',
     },
     hi: {
       title: 'नियंत्रित AI लर्निंग एवं मूल्यांकन लूप',
@@ -70,6 +91,8 @@ export const EvaluationLoopModal: React.FC<EvaluationLoopModalProps> = ({
       ruleTitle: 'प्रस्तावित नियम संस्करण',
       ruleEvidence: 'प्रायोगिक साक्ष्य और कारण',
       ruleNotice: '⚠️ सुरक्षा नियम: AI मॉडल कभी भी लाइव नियमों को स्वचालित रूप से नहीं बदलता। प्रत्येक परिवर्तन के लिए विशेषज्ञ की मंजूरी आवश्यक है।',
+      runBenchmark: 'बेंचमार्क मूल्यांकन चलाएं',
+      runningBenchmark: 'विश्लेषण प्रगति पर है...',
     },
     mr: {
       title: 'नियंत्रित AI लर्निंग आणि मूल्यमापन लूप',
@@ -81,6 +104,8 @@ export const EvaluationLoopModal: React.FC<EvaluationLoopModalProps> = ({
       ruleTitle: 'प्रस्तावित नियम आवृत्ती',
       ruleEvidence: 'प्रत्यक्ष पुरावा आणि कारण',
       ruleNotice: '⚠️ सुरक्षा नियम: AI मॉडेल कधीही थेट नियम बदलत नाही. सर्व प्रस्तावित बदलांसाठी कृषी तज्ज्ञांची स्वाक्षरी अनिवार्य आहे.',
+      runBenchmark: 'बेंचमार्क मूल्यमापन चालवा',
+      runningBenchmark: 'विश्लेषण सुरू आहे...',
     },
   }[language]
 
