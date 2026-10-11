@@ -3,6 +3,7 @@ import { Layout } from '../components/layout/Layout'
 import { FarmerDashboard } from '../features/dashboard/FarmerDashboard'
 import { NewAssessmentForm } from '../features/assessment/NewAssessmentForm'
 import { AssessmentResults } from '../features/assessment/AssessmentResults'
+import { BhoomiLandingPage } from '../features/landing/BhoomiLandingPage'
 import { assessmentService } from '../services/assessmentService'
 import { apiClient } from '../lib/api/client'
 import type { Language } from '../utils/translations'
@@ -15,7 +16,7 @@ import { Alert } from '../components/ui/Alert'
 // Initial seeded demo assessments for Dashboard
 const SEEDED_RECENT_ASSESSMENTS: AssessmentResponse[] = [
   {
-    assessmentId: 'as-demo-tomato-01',
+    assessmentId: 'as-demo-potato-01',
     generatedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
     mode: 'mock',
     location: {
@@ -26,8 +27,8 @@ const SEEDED_RECENT_ASSESSMENTS: AssessmentResponse[] = [
       country: 'India',
     },
     diagnosis: {
-      cropIdentified: 'Tomato',
-      cropGrowthStage: 'Fruiting',
+      cropIdentified: 'Potato',
+      cropGrowthStage: 'Tuber Initiation',
       status: 'candidate_detected',
       primaryCandidate: {
         name: 'Late Blight',
@@ -37,7 +38,7 @@ const SEEDED_RECENT_ASSESSMENTS: AssessmentResponse[] = [
       },
       secondaryCandidates: [],
       imageEvidence: [
-        'Water-soaked necrotic leaf spots with irregular margins',
+        'Water-soaked necrotic leaf lesions with irregular borders on lower foliage',
         'Visible chlorotic yellow halo indicating progressive cellular breakdown',
       ],
       imageQuality: { clarity: 'good', warning: null },
@@ -73,7 +74,7 @@ const SEEDED_RECENT_ASSESSMENTS: AssessmentResponse[] = [
       interventionWindow: {
         recommendedActionBy: new Date(Date.now() + 3600000 * 16).toISOString(),
         reason:
-          'Prune lower leaves before evening dew formation to minimize leaf wetness duration',
+          'Inspect lower leaves and prune water-soaked foliage before evening dew formation',
       },
       curve: [
         {
@@ -127,18 +128,18 @@ const SEEDED_RECENT_ASSESSMENTS: AssessmentResponse[] = [
       ],
     },
     advisory: {
-      headline: 'Tomato Late Blight: Elevated Risk Ahead of Prolonged Rain',
+      headline: 'Potato Late Blight: Elevated Risk Ahead of 48-Hour Wet Weather',
       severity: 'high',
       culturalPractices: [
         'Prune lower canopy leaves showing discoloration to increase air circulation.',
-        'Cease sprinkler irrigation immediately; rely on drip lines to prevent wetting foliage.',
+        'Cease sprinkler irrigation immediately; rely on drip lines to avoid prolonged leaf wetness.',
       ],
       chemicalWarning:
-        'DO NOT SPRAY SYNTHETIC CHEMICALS IMMEDIATELY. Inspect foliage closely. Only if lesions spread across >5% of plants should preventative bio-fungicides be considered in consultation with your local agricultural officer.',
+        'DO NOT SPRAY SYNTHETIC CHEMICALS AUTOMATICALLY. Inspect foliage closely. Only if lesions spread across >5% of plants should preventative bio-fungicides be considered in consultation with your local agricultural officer.',
       recheckSchedule: 'Inspect field canopy in 24 hours (Tomorrow morning)',
       verifiedSources: [
-        'ICAR Indian Institute of Horticultural Research Late Blight Advisory',
-        'State Agricultural Extension KVK Pune',
+        'ICAR Central Potato Research Institute (CPRI) Late Blight Guidelines',
+        'State Agricultural Extension KVK Pune District Advisory',
       ],
     },
   },
@@ -146,13 +147,15 @@ const SEEDED_RECENT_ASSESSMENTS: AssessmentResponse[] = [
 
 export const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en')
-  const [currentView, setCurrentView] = useState<'dashboard' | 'new-assessment' | 'results'>(
-    'dashboard'
-  )
+  const [currentView, setCurrentView] = useState<
+    'landing' | 'dashboard' | 'new-assessment' | 'results'
+  >('landing')
   const [recentAssessments, setRecentAssessments] = useState<AssessmentResponse[]>(
     SEEDED_RECENT_ASSESSMENTS
   )
-  const [selectedAssessment, setSelectedAssessment] = useState<AssessmentResponse | null>(null)
+  const [selectedAssessment, setSelectedAssessment] = useState<AssessmentResponse | null>(
+    SEEDED_RECENT_ASSESSMENTS[0]
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submissionError, setSubmissionError] = useState<string | null>(null)
 
@@ -188,13 +191,28 @@ export const App: React.FC = () => {
     }
   }
 
+  if (currentView === 'landing') {
+    return (
+      <BhoomiLandingPage
+        language={language}
+        onLanguageChange={setLanguage}
+        onCheckCrop={handleStartNewAssessment}
+        onViewWeatherRisk={() => {
+          setSelectedAssessment(recentAssessments[0])
+          setCurrentView('results')
+        }}
+        onEnterDashboard={() => setCurrentView('dashboard')}
+      />
+    )
+  }
+
   return (
     <Layout
       isMockMode={isMockMode}
       apiBaseUrl={apiBaseUrl}
       language={language}
       onLanguageChange={setLanguage}
-      onNavigateHome={() => setCurrentView('dashboard')}
+      onNavigateHome={() => setCurrentView('landing')}
     >
       {submissionError && (
         <div className="mb-6 max-w-3xl mx-auto">
