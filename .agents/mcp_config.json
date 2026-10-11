@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "n8n": {
+      "type": "http",
+      "url": "https://prat7.app.n8n.cloud/mcp-server/http",
+      "serverUrl": "https://prat7.app.n8n.cloud/mcp-server/http"
+    }
+  }
+}
